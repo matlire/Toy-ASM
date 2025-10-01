@@ -53,3 +53,8 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+log.log
+package-lock.json
+*.bin
+
