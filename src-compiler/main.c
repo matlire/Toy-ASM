@@ -9,7 +9,8 @@ const char* IN_FILE  = NULL;
 const char* OUT_FILE = NULL;
 
 void on_terminate();
-
+// 5-3 division
+// Signature - store in bin version
 int main(const int argc, char* const argv[])
 {
     atexit(on_terminate);
@@ -19,48 +20,18 @@ int main(const int argc, char* const argv[])
     if(!CHECK(ERROR, res == 2 && IN_FILE && OUT_FILE, "FILES NOT PROVIDED!"))
         { printf("FILES NOT PROVIDED!\n"); return 1; }
 
-    FILE* in_file  = load_file(IN_FILE,  "r");
-    if(!CHECK(ERROR, in_file != NULL, "CAN'T OPEN INPUT FILE!"))
-        { printf("CAN'T OPEN INPUT FILE!\n"); return 1; }
+    
+    operational_data_t op_data = { 0 };
 
-    if(!CHECK(ERROR, clean_file(OUT_FILE) != 0, "FAILED TO PREPARE OUTPUT FILE"))
-    {
-        fclose(in_file);
-        printf("CAN'T PREPARE OUTPUT FILE!\n");
-        return 1;
-    }
-
-    FILE* out_file = load_file(OUT_FILE, "a");
-    if(!CHECK(ERROR, out_file != NULL, "CAN'T OPEN OUTPUT FILE!"))
-    {
-        fclose(in_file);
-        printf("CAN'T OPEN OUTPUT FILE!\n");
-        return 1;
-    }
-
-    ssize_t file_size = get_file_size_stat(IN_FILE);
-    if(!CHECK(ERROR, file_size > 0, "INPUT FILE IS EMPTY OR INACCESSIBLE"))
-    {
-        fclose(in_file);
-        fclose(out_file);
-        printf("INPUT FILE ERROR!\n");
-        return 1;
-    }
-
-    operational_data_t op_data =
-    {
-        .in_file      = in_file,
-        .out_file     = out_file,
-        .buffer       = NULL,
-        .buffer_size  = (size_t)file_size,
-    };
+    err_t rc = load_op_data(&op_data, IN_FILE, OUT_FILE);
+    if (rc != OK) return 1;
 
     size_t parsed_bytes = parse_file(&op_data);
 
     free(op_data.buffer);
 
-    fclose(in_file);
-    fclose(out_file);
+    fclose(op_data.in_file);
+    fclose(op_data.out_file);
 
     if(!CHECK(ERROR, parsed_bytes > 0, "FILE PARSING FAILED"))
     {

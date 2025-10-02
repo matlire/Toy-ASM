@@ -16,6 +16,7 @@ typedef enum
     SUB   = 11,
     MUL   = 12,
     DIV   = 13,
+    QROOT = 14,
     UNDEF = 666
 } instruction_set;
 

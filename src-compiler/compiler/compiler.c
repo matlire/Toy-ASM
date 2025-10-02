@@ -1,7 +1,48 @@
 #include "compiler.h"
 
+err_t load_op_data (operational_data_t * const op_data,
+                     const char * const IN_FILE, const char * const OUT_FILE)
+{
+    FILE* in_file  = load_file(IN_FILE,  "r");
+    if(!CHECK(ERROR, in_file != NULL, "CAN'T OPEN INPUT FILE!"))
+        { printf("CAN'T OPEN INPUT FILE!\n"); return 1; }
+
+    if(!CHECK(ERROR, clean_file(OUT_FILE) != 0, "FAILED TO PREPARE OUTPUT FILE"))
+    {
+        fclose(in_file);
+        printf("CAN'T PREPARE OUTPUT FILE!\n");
+        return ERR_BAD_ARG;
+    }
+
+    FILE* out_file = load_file(OUT_FILE, "a");
+    if(!CHECK(ERROR, out_file != NULL, "CAN'T OPEN OUTPUT FILE!"))
+    {
+        fclose(in_file);
+        printf("CAN'T OPEN OUTPUT FILE!\n");
+        return ERR_BAD_ARG;
+    }
+
+    ssize_t file_size = get_file_size_stat(IN_FILE);
+    if(!CHECK(ERROR, file_size > 0, "INPUT FILE IS EMPTY OR INACCESSIBLE"))
+    {
+        fclose(in_file);
+        fclose(out_file);
+        printf("INPUT FILE ERROR!\n");
+        return ERR_BAD_ARG;
+    }
+
+    op_data->in_file     = in_file;
+    op_data->out_file    = out_file;
+    op_data->buffer_size = file_size;
+
+    return OK;
+}
+
 static size_t parse_loop(const operational_data_t * const op_data, char** cursor)
 {
+    if(!CHECK(ERROR, cursor != NULL || *cursor != NULL || op_data != NULL, 
+              "parse_loop: some data not provided")) return 0;
+
     char* p = *cursor;
     
     size_t total_written = 0;
@@ -22,7 +63,7 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
         if (*trimmed == '\0' || *trimmed == ';')
             { *p = saved; if (*p != '\0') p++; continue; }
 
-        char encoded[MAX_LINE_LEN] = { 0 };
+        char   encoded[MAX_LINE_LEN] = { 0 };
         size_t encoded_len = parse_line(trimmed, encoded);
 
         if (encoded_len == 0)
@@ -47,8 +88,9 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
 
 size_t parse_file(operational_data_t * const op_data)
 {
-    if (!op_data || !op_data->in_file || !op_data->out_file || op_data->buffer_size == 0)
-        { log_printf(ERROR, "parse_file: invalid operational data"); return 0; }
+    if (!CHECK(ERROR, op_data != NULL || op_data->in_file != NULL || 
+               op_data->out_file != NULL || op_data->buffer_size != 0, "parse_file: some data is missing"))
+            return 0;
 
     op_data->buffer = (char*)calloc(op_data->buffer_size + 1, sizeof(char));
     if (!op_data->buffer)
@@ -72,7 +114,8 @@ size_t parse_file(operational_data_t * const op_data)
 
 size_t parse_line(const char* in, char * const out)
 {
-    if (!in || !out) return 0;
+    if(!CHECK(ERROR, in != NULL || out != NULL, 
+              "parse_line: some data not provided")) return 0;
 
     const char* cursor = in;
 

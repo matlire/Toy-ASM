@@ -1,0 +1,15 @@
+; 3x^2 - 10x + 3 = 0
+;      D  = 64
+; sqrt(D) = 8
+PUSH 10
+PUSH 10
+MUL
+PUSH -4
+PUSH 3
+PUSH 3
+MUL
+MUL
+ADD
+QROOT
+OUT
+HLT

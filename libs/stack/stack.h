@@ -38,6 +38,62 @@ typedef struct
     )
 } stack_info_t;
 
+typedef void (*element_copy_fn_t) (void* dst, const void* src, size_t size);
+
+static inline void stack_memcpy_bytes (void* dst, const void* src, size_t size)
+{
+    memcpy(dst, src, size);
+}
+
+#define STACK_DEFINE_INTEGER_ASSIGN_FN(tag, type)                             \
+    static inline void stack_mem_assign_##tag(void* dst, const void* src,     \
+                                              size_t size)                    \
+    {                                                                         \
+        (void)size;                                                           \
+        *(type*)dst = *(const type*)src;                                      \
+    }
+
+STACK_DEFINE_INTEGER_ASSIGN_FN(char,               char)
+STACK_DEFINE_INTEGER_ASSIGN_FN(schar,              signed char)
+STACK_DEFINE_INTEGER_ASSIGN_FN(uchar,              unsigned char)
+STACK_DEFINE_INTEGER_ASSIGN_FN(short,              short)
+STACK_DEFINE_INTEGER_ASSIGN_FN(ushort,             unsigned short)
+STACK_DEFINE_INTEGER_ASSIGN_FN(int,                int)
+STACK_DEFINE_INTEGER_ASSIGN_FN(uint,               unsigned int)
+STACK_DEFINE_INTEGER_ASSIGN_FN(long,               long)
+STACK_DEFINE_INTEGER_ASSIGN_FN(ulong,              unsigned long)
+STACK_DEFINE_INTEGER_ASSIGN_FN(llong,              long long)
+STACK_DEFINE_INTEGER_ASSIGN_FN(ullong,             unsigned long long)
+
+#undef STACK_DEFINE_INTEGER_ASSIGN_FN
+
+#define STACK_MEM_COPY_FN_SELECT(T)                                           \
+    _Generic(((const T*)0),                                                   \
+        const short*:              stack_mem_assign_short,                    \
+        const unsigned short*:     stack_mem_assign_ushort,                   \
+        const int*:                stack_mem_assign_int,                      \
+        const unsigned int*:       stack_mem_assign_uint,                     \
+        const long*:               stack_mem_assign_long,                     \
+        const unsigned long*:      stack_mem_assign_ulong,                    \
+        const long long*:          stack_mem_assign_llong,                    \
+        const unsigned long long*: stack_mem_assign_ullong,                   \
+        default:                   stack_memcpy_bytes                         \
+    )
+
+#define MEM_CPY(dst, src, info)                                               \
+    do {                                                                      \
+              void*          __memcpy_dst  = (dst);                           \
+        const void*          __memcpy_src  = (src);                           \
+        const element_info_t __memcpy_info = (info);                          \
+        if (__memcpy_info.copy_fn) {                                          \
+            __memcpy_info.copy_fn(__memcpy_dst, __memcpy_src,                 \
+                                  __memcpy_info.elem_size);                   \
+        } else {                                                              \
+            stack_memcpy_bytes(__memcpy_dst, __memcpy_src,                    \
+                               __memcpy_info.elem_size);                      \
+        }                                                                     \
+    } while (0)
+
 typedef struct
 {
     const char* elem_name;
@@ -45,6 +101,8 @@ typedef struct
     size_t elem_size;
     size_t elem_align;
     size_t elem_stride;
+
+    element_copy_fn_t copy_fn;
 } element_info_t;
 
 typedef int (*stack_sprint_fn) (char* dst, size_t dstsz, const void* elem);
@@ -80,7 +138,8 @@ err_t stack_dump (logging_level level, const stack_id stack, err_t code, const c
 err_t stack_verify(const stack_id stack);
 
 #define ELEMENT_INFO_INIT(T)    ((element_info_t) { .elem_name = #T, .elem_size = sizeof(T),     \
-                                                    .elem_align = alignof(T), .elem_stride = 0 })
+                                                    .elem_align = alignof(T), .elem_stride = 0, \
+                                                    .copy_fn = STACK_MEM_COPY_FN_SELECT(T) })
 
 #define STACK_INFO_INIT(m_name) ((stack_info_t) { .name = #m_name,                        \
                                                    IFDEBUG(.func = __PRETTY_FUNCTION__, \
@@ -183,6 +242,7 @@ err_t stack_verify(const stack_id stack);
             exit(1);                       \
         }                                  \
     } while (0)
-    
+
+
 
 #endif

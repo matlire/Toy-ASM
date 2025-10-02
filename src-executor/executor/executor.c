@@ -2,9 +2,30 @@
 
 DEFINE_STACK_PRINTER_SIMPLE(long, "%ld")
 
+err_t load_op_data (operational_data_t * const op_data, const char* const IN_FILE)
+{
+    FILE* in_file  = load_file(IN_FILE,  "r");
+    if(!CHECK(ERROR, in_file != NULL, "CAN'T OPEN FILE!"))
+        { printf("CAN'T OPEN FILE!\n"); return ERR_BAD_ARG; }
+
+    ssize_t file_size = get_file_size_stat(IN_FILE);
+    if(!CHECK(ERROR, file_size > 0, "INPUT FILE IS EMPTY OR INACCESSIBLE"))
+    {
+        fclose(in_file);
+        printf("INPUT FILE ERROR!\n");
+        return ERR_BAD_ARG;
+    }
+
+    op_data->in_file     = in_file;
+    op_data->buffer_size = file_size;
+
+    return OK;
+}
+
 static instruction_set read_instruction_code(char** cursor)
 {
-    if (!cursor || !*cursor) return UNDEF;
+    if(!CHECK(ERROR, cursor != NULL || *cursor != NULL, 
+              "read_instruction_code: some data not provided")) return UNDEF;
 
     char* p = *cursor;
     for (size_t i = 0; i < 4; i++)
@@ -21,7 +42,8 @@ static instruction_set read_instruction_code(char** cursor)
 
 static err_t read_optional_argument(char** cursor, long * const value)
 {
-    if (!cursor || !*cursor || !value) return ERR_BAD_ARG;
+    if(!CHECK(ERROR, cursor != NULL || *cursor != NULL || value != NULL, 
+              "read_optional_argument: some data not provided")) return ERR_BAD_ARG;
 
     char* p = *cursor;
     while (*p && isspace((unsigned char)*p)) p++;
@@ -37,58 +59,18 @@ static err_t read_optional_argument(char** cursor, long * const value)
     return OK;
 }
 
-static err_t add_impl(const long lhs, const long rhs, long* out)
-{
-    if (!out) return ERR_BAD_ARG;
-    *out = lhs + rhs;
-    return OK;
-}
-
-static err_t sub_impl(const long lhs, const long rhs, long* out)
-{
-    if (!out) return ERR_BAD_ARG;
-    *out = lhs - rhs;
-    return OK;
-}
-
-static err_t mul_impl(const long lhs, const long rhs, long* out)
-{
-    if (!out) return ERR_BAD_ARG;
-    *out = lhs * rhs;
-    return OK;
-}
-
-static err_t div_impl(const long lhs, const long rhs, long* out)
-{
-    if (!out) return ERR_BAD_ARG;
-    if (rhs == 0) return ERR_BAD_ARG;
-    *out = lhs / rhs;
-    return OK;
-}
-
-static err_t exec_binary_op(const stack_id stack,
-                            err_t (*op)(long, long, long*))
-{
-    long rhs = 0;
-    long lhs = 0;
-
-    err_t rc = STACK_POP(stack, rhs);
-    if (rc != OK) return rc;
-
-    rc = STACK_POP(stack, lhs);
-    if (rc != OK) return rc;
-
-    long result = 0;
-    err_t op_rc = op(lhs, rhs, &result);
-    if (op_rc != OK) return op_rc;
-
-    return STACK_PUSH(stack, result);
-}
-
+// Real byte code
+//
+// Switch case optimization???
+// Byte code instruction set??
 static err_t switcher(const stack_id stack, char** cursor, 
                       const instruction_set instruction, const long arg)
 {
     err_t exec_rc = OK;
+
+    long arg1 = 0;
+    long arg2 = 0;
+    long res  = 0;
 
     switch(instruction)
         {
@@ -109,22 +91,71 @@ static err_t switcher(const stack_id stack, char** cursor,
                 break;
             }
             case ADD:
-                exec_rc = exec_binary_op(stack, add_impl);
+            {
+                exec_rc      = STACK_POP(stack, arg2);
+                if (exec_rc != OK) break;
+
+                exec_rc      = STACK_POP(stack, arg1);
+                if (exec_rc != OK) break;
+
+                res     = arg1 + arg2;
+                exec_rc = STACK_PUSH(stack, res);
+                
                 break;
+            }
             case SUB:
-                exec_rc = exec_binary_op(stack, sub_impl);
+            {
+                exec_rc      = STACK_POP(stack, arg2);
+                if (exec_rc != OK) break;
+
+                exec_rc      = STACK_POP(stack, arg1);
+                if (exec_rc != OK) break;
+
+                res     = arg1 - arg2;
+                exec_rc = STACK_PUSH(stack, res);
+                
                 break;
+            }
             case MUL:
-                exec_rc = exec_binary_op(stack, mul_impl);
+            {
+                exec_rc      = STACK_POP(stack, arg2);
+                if (exec_rc != OK) break;
+
+                exec_rc      = STACK_POP(stack, arg1);
+                if (exec_rc != OK) break;
+
+                res     = arg1 * arg2;
+                exec_rc = STACK_PUSH(stack, res);
+                
                 break;
+            }
             case DIV:
             {
-                exec_rc = exec_binary_op(stack, div_impl);
+                exec_rc      = STACK_POP(stack, arg2);
+                if (exec_rc != OK) break;
+
+                exec_rc      = STACK_POP(stack, arg1);
+                exec_rc      = (arg2 == 0) ? ERR_BAD_ARG : OK;
+                if (exec_rc != OK) break;
+
+                res     = arg1 / arg2;
+                exec_rc = STACK_PUSH(stack, res);
+                
+                break;
+            }
+            case QROOT:
+            {
+                exec_rc      = STACK_POP(stack, arg1);
+                if (exec_rc != OK) break;
+
+                res     = sqrt(arg1);
+                exec_rc = STACK_PUSH(stack, res);
+                
                 break;
             }
             case HLT:
                 exec_rc = OK;
-                *cursor = strchr(*cursor, '\0');
+                *cursor = strchr(*cursor, '\0'); 
                 break;
             default:
                 exec_rc = ERR_BAD_ARG;
@@ -153,7 +184,7 @@ static err_t exec_loop(const stack_id stack, char** cursor)
         }
 
         while (*p && isspace(*p)) p++;
-
+        
         if (*p != '|') { exec_rc = ERR_BAD_ARG; break; }
         p++;
 
@@ -167,10 +198,10 @@ static err_t exec_loop(const stack_id stack, char** cursor)
     return exec_rc;
 }
 
-err_t exec_stream(operational_data_t* op_data)
+err_t exec_stream(operational_data_t * const op_data)
 {
-    if (!op_data || !op_data->in_file || op_data->buffer_size == 0)
-        return ERR_BAD_ARG;
+    if(!CHECK(ERROR, op_data != NULL || op_data->in_file != NULL || op_data->buffer_size != 0, 
+              "exec_stream: some data not provided")) return ERR_BAD_ARG;
 
     op_data->buffer = (char*)calloc(op_data->buffer_size + 1, sizeof(char));
     if (!op_data->buffer) return ERR_ALLOC;

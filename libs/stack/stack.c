@@ -166,6 +166,9 @@ err_t stack_ctor(stack_id* stack, element_info_t info,
     stack_array[slot] = st;
     st->stack_info = stack_info;
     st->elem_info  = info;
+    if (st->elem_info.copy_fn == NULL) {
+        st->elem_info.copy_fn = stack_memcpy_bytes;
+    }
 
     st->data     = NULL;
     st->size     = 0;
@@ -233,7 +236,7 @@ err_t stack_push(stack_id stack, const void* elem)
         err = stack_realloc(stack, target);
         if (err != OK) return err;
     }
-    memcpy(calculate_ptr(st, st->size), elem, st->elem_info.elem_size);
+    MEM_CPY(calculate_ptr(st, st->size), elem, st->elem_info);
     st->size++;
     
     STACK_VERIFY(stack);
@@ -256,7 +259,7 @@ err_t stack_pop (stack_id stack, void* elem)
     STACK_VERIFY(stack);
 
     st->size--;
-    memcpy(elem, calculate_ptr(st, st->size), st->elem_info.elem_size);  
+    MEM_CPY(elem, calculate_ptr(st, st->size), st->elem_info);
 
     if (st->capacity >= 8 && st->size <= st->capacity / 4){
         err_t err = stack_realloc(stack, st->capacity / 2);
@@ -376,6 +379,7 @@ err_t stack_verify(const stack_id stack)
 
     const element_info_t* ei = &st->elem_info;
     STACK_CHECK(ERROR, ei != NULL, stack, ERR_CORRUPT, "stack_verify: elem info == NULL");
+    STACK_CHECK(ERROR, ei->copy_fn != NULL, stack, ERR_CORRUPT, "stack_verify: copy_fn == NULL");
 
     STACK_CHECK(ERROR, ei->elem_size != 0, stack, ERR_CORRUPT, "stack_verify: elem size == 0");
     
@@ -423,4 +427,3 @@ err_t stack_verify(const stack_id stack)
 
     return OK;
 }
-
