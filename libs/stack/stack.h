@@ -128,6 +128,7 @@ err_t stack_dtor(stack_id st);
 
 err_t stack_push(stack_id stack, const void* elem);
 err_t stack_pop (stack_id stack, void* elem);
+err_t stack_top (stack_id stack, void* elem);
 
 err_t stack_print(const stack_id stack);
 
@@ -212,6 +213,9 @@ err_t stack_verify(const stack_id stack);
 
 #define STACK_POP(S, VAR)        \
     stack_pop((S), &(VAR))
+
+#define STACK_TOP(S, VAR)        \
+    stack_top((S), &(VAR))
 
 #define STACK_CHECK(level, cond, stack, errcode, fmt, ...)      \
     if (!CHECK((level), (cond), (fmt), ##__VA_ARGS__)) {        \

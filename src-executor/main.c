@@ -4,12 +4,6 @@
 #include "executor/executor.h"
 #include "../libs/io/io.h"
 
-/*
-TODO:
-1) out not pops but tops
-2) more universal commands execution
-*/
-
 const char* IN_FILE  = NULL;
 
 void on_terminate();
@@ -28,8 +22,26 @@ int main(const int argc, char* const argv[])
     err_t rc = load_op_data(&op_data, IN_FILE);
     if (rc != OK) return 1;
 
-    rc = exec_stream(&op_data);
-    if (rc != OK) { printf("EXEC ERROR: %s\n", err_str(rc)); }
+    CPU_INIT(cpu);
+    if (cpu_init_rc_cpu != OK)
+    {
+        printf("CPU INIT ERROR: %s\n", err_str(cpu_init_rc_cpu));
+        free(op_data.buffer);
+        fclose(op_data.in_file);
+        return 1;
+    }
+
+    rc = load_program(&op_data, &cpu);
+    if (rc == OK)
+    {
+        rc = exec_stream(&cpu);
+        if (rc != OK) printf("EXEC ERROR: %s\n", err_str(rc));
+    } else
+    {
+        printf("LOAD ERROR: %s\n", err_str(rc));
+    }
+
+    cpu_destroy(&cpu);
     
     free(op_data.buffer);
     fclose(op_data.in_file);
@@ -43,4 +55,3 @@ void on_terminate()
 
     close_log_file();
 }
-

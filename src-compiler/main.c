@@ -9,17 +9,15 @@ const char* IN_FILE  = NULL;
 const char* OUT_FILE = NULL;
 
 void on_terminate();
-// 5-3 division
-// Signature - store in bin version
+
 int main(const int argc, char* const argv[])
 {
     atexit(on_terminate);
     init_logging("log.log", DEBUG);
  
     size_t res = parse_arguments(argc, argv, &IN_FILE, &OUT_FILE);
-    if(!CHECK(ERROR, res == 2 && IN_FILE && OUT_FILE, "FILES NOT PROVIDED!"))
+    if (!CHECK(ERROR, res == 2 && IN_FILE && OUT_FILE, "FILES NOT PROVIDED!"))
         { printf("FILES NOT PROVIDED!\n"); return 1; }
-
     
     operational_data_t op_data = { 0 };
 
@@ -33,7 +31,7 @@ int main(const int argc, char* const argv[])
     fclose(op_data.in_file);
     fclose(op_data.out_file);
 
-    if(!CHECK(ERROR, parsed_bytes > 0, "FILE PARSING FAILED"))
+    if (!CHECK(ERROR, parsed_bytes > 0, "FILE PARSING FAILED"))
     {
         printf("FILE PARSING FAILED!\n");
         return 1;

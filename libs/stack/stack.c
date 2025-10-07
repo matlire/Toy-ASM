@@ -271,6 +271,25 @@ err_t stack_pop (stack_id stack, void* elem)
     return OK;
 }
 
+err_t stack_top(stack_id stack, void* elem)
+{
+    STACK_ERR_CHECK(ERROR, id_in_range(stack), stack, ERR_BAD_ARG,
+                    "stack_top: stack_id incorrect");
+    stack_t* st = get_stack(stack);
+    STACK_ERR_CHECK(ERROR, st != NULL, stack, ERR_BAD_ARG,
+                    "stack_top: st == NULL");
+    STACK_ERR_CHECK(ERROR, elem != NULL, stack, ERR_BAD_ARG,
+                    "stack_top: elem == NULL");
+    STACK_ERR_CHECK(ERROR, st->size != 0, stack, ERR_CORRUPT,
+                    "stack_top: size == 0");
+
+    STACK_VERIFY(stack);
+
+    MEM_CPY(elem, calculate_ptr(st, st->size - 1), st->elem_info);
+
+    return OK;
+}
+
 err_t stack_print(const stack_id stack)
 {   
     STACK_ERR_CHECK(ERROR, id_in_range(stack), stack, ERR_BAD_ARG,

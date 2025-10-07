@@ -4,10 +4,10 @@ err_t load_op_data (operational_data_t * const op_data,
                      const char * const IN_FILE, const char * const OUT_FILE)
 {
     FILE* in_file  = load_file(IN_FILE,  "r");
-    if(!CHECK(ERROR, in_file != NULL, "CAN'T OPEN INPUT FILE!"))
-        { printf("CAN'T OPEN INPUT FILE!\n"); return 1; }
+    if (!CHECK(ERROR, in_file != NULL, "CAN'T OPEN INPUT FILE!"))
+        { printf("CAN'T OPEN INPUT FILE!\n"); return ERR_BAD_ARG; }
 
-    if(!CHECK(ERROR, clean_file(OUT_FILE) != 0, "FAILED TO PREPARE OUTPUT FILE"))
+    if (!CHECK(ERROR, clean_file(OUT_FILE) != 0, "FAILED TO PREPARE OUTPUT FILE"))
     {
         fclose(in_file);
         printf("CAN'T PREPARE OUTPUT FILE!\n");
@@ -15,7 +15,7 @@ err_t load_op_data (operational_data_t * const op_data,
     }
 
     FILE* out_file = load_file(OUT_FILE, "a");
-    if(!CHECK(ERROR, out_file != NULL, "CAN'T OPEN OUTPUT FILE!"))
+    if (!CHECK(ERROR, out_file != NULL, "CAN'T OPEN OUTPUT FILE!"))
     {
         fclose(in_file);
         printf("CAN'T OPEN OUTPUT FILE!\n");
@@ -23,7 +23,7 @@ err_t load_op_data (operational_data_t * const op_data,
     }
 
     ssize_t file_size = get_file_size_stat(IN_FILE);
-    if(!CHECK(ERROR, file_size > 0, "INPUT FILE IS EMPTY OR INACCESSIBLE"))
+    if (!CHECK(ERROR, file_size > 0, "INPUT FILE IS EMPTY OR INACCESSIBLE"))
     {
         fclose(in_file);
         fclose(out_file);
@@ -40,7 +40,7 @@ err_t load_op_data (operational_data_t * const op_data,
 
 static size_t parse_loop(const operational_data_t * const op_data, char** cursor)
 {
-    if(!CHECK(ERROR, cursor != NULL || *cursor != NULL || op_data != NULL, 
+    if (!CHECK(ERROR, cursor != NULL && *cursor != NULL && op_data != NULL, 
               "parse_loop: some data not provided")) return 0;
 
     char* p = *cursor;
@@ -49,7 +49,7 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
     
     while (*p)
     {
-        while (*p == '\n' || *p == '\r' || *p == ' ') p++;
+        while (isspace(*p)) p++;
         if (*p == '\0') break;
 
         char* line_start = p;
@@ -63,13 +63,13 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
         if (*trimmed == '\0' || *trimmed == ';')
             { *p = saved; if (*p != '\0') p++; continue; }
 
-        char   encoded[MAX_LINE_LEN] = { 0 };
-        size_t encoded_len = parse_line(trimmed, encoded);
+        uint8_t encoded[MAX_LINE_LEN] = { 0 };
+        size_t  encoded_len           = parse_line(trimmed, encoded);
 
         if (encoded_len == 0)
             { *p = saved; log_printf(ERROR, "parse_file: failed to parse line '%s'", trimmed); return 0; }
 
-        size_t written = fwrite(encoded, sizeof(char), encoded_len, op_data->out_file);
+        size_t written = fwrite(encoded, 1, encoded_len, op_data->out_file);
 
         if (written != encoded_len)
             { *p = saved; log_printf(ERROR, "parse_file: failed to write encoded instruction"); return 0; }
@@ -88,8 +88,8 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
 
 size_t parse_file(operational_data_t * const op_data)
 {
-    if (!CHECK(ERROR, op_data != NULL || op_data->in_file != NULL || 
-               op_data->out_file != NULL || op_data->buffer_size != 0, "parse_file: some data is missing"))
+    if (!CHECK(ERROR, op_data != NULL && op_data->in_file != NULL && 
+               op_data->out_file != NULL && op_data->buffer_size != 0, "parse_file: some data is missing"))
             return 0;
 
     op_data->buffer = (char*)calloc(op_data->buffer_size + 1, sizeof(char));
@@ -107,30 +107,50 @@ size_t parse_file(operational_data_t * const op_data)
 
     op_data->buffer[read_bytes] = '\0';
 
-    char*  cursor = op_data->buffer;
+    char* cursor = op_data->buffer;
 
-    return (parse_loop(op_data, &cursor));
+    instruction_set_version_t version              = instruction_set_version();
+    uint8_t header[INSTRUCTION_BINARY_HEADER_SIZE] = { 0 };
+
+    memcpy(header, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN);
+    header[INSTRUCTION_BINARY_MAGIC_LEN]     = (uint8_t)version.major;
+    header[INSTRUCTION_BINARY_MAGIC_LEN + 1] = (uint8_t)version.minor;
+
+    size_t header_written = fwrite(header, 1, sizeof(header), op_data->out_file);
+    if (header_written != sizeof(header))
+    {
+        log_printf(ERROR, "parse_file: failed to write binary header");
+        free(op_data->buffer);
+        op_data->buffer = NULL;
+        return 0;
+    }
+
+    size_t body_written  = parse_loop(op_data, &cursor);
+
+    if (body_written == 0) return 0;
+
+    return header_written + body_written;
 }
 
-size_t parse_line(const char* in, char * const out)
+size_t parse_line(const char* in, uint8_t * const out)
 {
-    if(!CHECK(ERROR, in != NULL || out != NULL, 
+    if(!CHECK(ERROR, in != NULL && out != NULL, 
               "parse_line: some data not provided")) return 0;
 
     const char* cursor = in;
 
-    while (*cursor && isspace(*cursor)) cursor++;
-    if (*cursor == '\0' || *cursor == ';') return 0;
+    while (*cursor && isspace((unsigned char)*cursor)) cursor++;
+    if    (*cursor == '\0' || *cursor == ';') return 0;
 
-    char instruction[MAX_INSTRUCTION_LEN] = { 0 };
-    size_t instruction_len = 0;
+    char   instruction[MAX_INSTRUCTION_LEN] = { 0 };
+    size_t instruction_len                  = 0;
 
-    while (*cursor && !isspace(*cursor) && instruction_len < MAX_INSTRUCTION_LEN - 1)
+    while (*cursor && !isspace((unsigned char)*cursor) && instruction_len < MAX_INSTRUCTION_LEN - 1)
         instruction[instruction_len++] = *cursor++;
 
     instruction[instruction_len] = '\0';
 
-    if (instruction_len == MAX_INSTRUCTION_LEN - 1 && *cursor && !isspace(*cursor))
+    if (instruction_len == MAX_INSTRUCTION_LEN - 1 && *cursor && !isspace((unsigned char)*cursor))
         { log_printf(ERROR, "parse_line: instruction token too long"); return 0; }
 
     instruction_set ins = map_instruction(instruction);
@@ -138,31 +158,41 @@ size_t parse_line(const char* in, char * const out)
     if (ins == UNDEF)
         { log_printf(ERROR, "parse_line: unknown instruction '%s'", instruction); return 0; }
 
-    while (*cursor && isspace(*cursor)) cursor++;
+    const instruction_t* meta = instruction_get(ins);
+    if (!meta)
+        { log_printf(ERROR, "parse_line: instruction metadata missing for '%s'", instruction); return 0; }
 
-    int written = snprintf(out, MAX_LINE_LEN, "%04d", (int)ins);
-    if (written < 0 || written >= MAX_LINE_LEN) return 0;
+    while (*cursor && isspace((unsigned char)*cursor)) cursor++;
 
-    size_t total = (size_t)written;
+    size_t total = 0;
+    out[total++] = (uint8_t)meta->id;
+    out[total++] = (uint8_t)meta->expected_args;
 
-    if (expect_arg(ins))
+    for (size_t arg_idx = 0; arg_idx < meta->expected_args; ++arg_idx)
     {
         char* endptr = NULL;
-        long  val    = strtol(cursor, &endptr, 10);
+        long  val    = 0;
 
-        if (cursor == endptr)
+        if ((*cursor == 'x' || *cursor == 'X') && isdigit((unsigned char)cursor[1]))
         {
-            log_printf(ERROR, "parse_line: invalid argument for '%s'", instruction);
-            return 0;
+            const char* digits = cursor + 1;
+            val = strtol(digits, &endptr, 10);
+            if ((const char*)endptr == digits)
+                { log_printf(ERROR, "parse_line: invalid register for '%s'", instruction); return 0; }
+        } else
+        {
+            val = strtol(cursor, &endptr, 10);
+            if (cursor == endptr)
+                { log_printf(ERROR, "parse_line: invalid argument for '%s'", instruction); return 0; }
         }
 
-        int arg_written = snprintf(out + total, 64 - total, "%ld", val);
-        if (arg_written < 0 || arg_written >= (int)(64 - total)) return 0;
+        int32_t stored = (int32_t)val;
+        memcpy(out + total, &stored, sizeof(stored));
+        total += sizeof(stored);
 
-        total += (size_t)arg_written;
         cursor = endptr;
 
-        while (*cursor && isspace(*cursor)) cursor++;
+        while (*cursor && isspace((unsigned char)*cursor)) cursor++;
     }
 
     if (*cursor && *cursor != ';')
@@ -170,9 +200,6 @@ size_t parse_line(const char* in, char * const out)
         log_printf(ERROR, "parse_line: unexpected token '%s'", cursor);
         return 0;
     }
-
-    out[total++] = '|';
-    out[total]   = '\0';
 
     return total;
 }

@@ -1,1 +1,1 @@
-./dist/executor.out --infile examples/2.bin
+./dist/executor.out --infile examples/3.bin
