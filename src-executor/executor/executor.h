@@ -1,45 +1,13 @@
 #ifndef EXECUTOR_H
 #define EXECUTOR_H
 
+#include <stdint.h>
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
-#include <stdint.h>
 
-#include "../../libs/instructions_set/instructions_set.h"
-
-#include "../../libs/logging/logging.h"
-
-#include "../../libs/stack/stack.h"
-#include "../../libs/io/io.h"
-
-typedef long reg_t;
-
-#define CPU_REGISTER_SIZE (sizeof(reg_t))
-#define CPU_REGISTER_COUNT 8
-
-typedef union
-{
-    reg_t value;
-    char  bytes[CPU_REGISTER_SIZE];
-} cpu_register_value_t;
-
-typedef struct
-{
-    const char*          name;
-    cpu_register_value_t value;
-} cpu_register_t;
-
-typedef struct
-{
-    stack_id       stack;
-    char*          code;
-    size_t         code_size;
-    size_t         pc;
-    cpu_register_t x[CPU_REGISTER_COUNT];
-
-    instruction_set_version_t binary_version;
-} cpu_t;
+#include "executor_types.h"
+#include "instruction_handlers/instruction_handlers.h"
 
 err_t cpu_init    (cpu_t* cpu);
 void  cpu_destroy (cpu_t* cpu);

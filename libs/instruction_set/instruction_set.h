@@ -36,6 +36,13 @@ typedef struct
     X(DIV,    "DIV",    0,  13)    \
     X(QROOT,  "QROOT",  0,  14)    \
     X(SQ,     "SQ",     0,  15)    \
+    X(JMP,    "JMP",    1,  16)    \
+    X(JB,     "JB",     1,  17)    \
+    X(JBE,    "JBE",    1,  18)    \
+    X(JA,     "JA",     1,  19)    \
+    X(JAE,    "JAE",    1,  20)    \
+    X(JE,     "JE",     1,  21)    \
+    X(JNE,    "JNE",    1,  22)    \
     X(PUSHR,  "PUSHR",  1,  33)    \
     X(POPR,   "POPR",   1,  34) 
 
@@ -59,10 +66,10 @@ const instruction_t* instruction_get        (instruction_set id);
 const instruction_t* instruction_table      (void);
 size_t               instruction_table_size (void);
 
-instruction_set_version_t  instruction_set_version     (void);
-unsigned int               instruction_set_version_code(void);
-
 instruction_set      map_instruction        (const char* str);
 size_t               expect_arg             (const instruction_set instruction);
+
+instruction_set_version_t  instruction_set_version     (void);
+unsigned int               instruction_set_version_code(void);
 
 #endif

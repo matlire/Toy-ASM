@@ -1,0 +1,41 @@
+#ifndef EXECUTOR_TYPES_H
+#define EXECUTOR_TYPES_H
+
+#include <stdint.h>
+#include <ctype.h>
+
+#include "../../libs/logging/logging.h"
+
+#include "../../libs/stack/stack.h"
+#include "../../libs/io/io.h"
+#include "../../libs/instruction_set/instruction_set.h"
+
+typedef long reg_t;
+
+#define CPU_REGISTER_SIZE (sizeof(reg_t))
+#define CPU_REGISTER_COUNT 8
+
+typedef union
+{
+    reg_t value;
+    char  bytes[CPU_REGISTER_SIZE];
+} cpu_register_value_t;
+
+typedef struct
+{
+    const char*          name;
+    cpu_register_value_t value;
+} cpu_register_t;
+
+typedef struct
+{
+    stack_id       stack;
+    char*          code;
+    size_t         code_size;
+    size_t         pc;
+    cpu_register_t x[CPU_REGISTER_COUNT];
+
+    instruction_set_version_t binary_version;
+} cpu_t;
+
+#endif

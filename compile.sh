@@ -1,2 +1,2 @@
-./dist/compiler.out --infile examples/3.asm --outfile examples/3.bin
+./dist/compiler.out --infile examples/5.asm --outfile examples/5.bin
 

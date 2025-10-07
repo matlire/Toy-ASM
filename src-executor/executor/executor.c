@@ -100,223 +100,7 @@ static err_t parse_binary_header(char** cursor,
     return OK;
 }
 
-typedef err_t (*instruction_executor_fn)(cpu_t* cpu,
-                                         const long* args, size_t arg_count);
-
-static err_t exec_hlt   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_push  (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_pop   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_out   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_add   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_sub   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_mul   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_div   (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_qroot (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_sq    (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_pushr (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_popr  (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_in    (cpu_t* cpu, const long* args, size_t arg_count);
-static err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count);
-
-static err_t exec_hlt(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    if (!cpu) return ERR_BAD_ARG;
-
-    cpu->pc = cpu->code_size;
-    return OK;
-}
-
-static err_t exec_push(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    if (arg_count < 1 || !args) return ERR_BAD_ARG;
-    return STACK_PUSH(cpu->stack, args[0]);
-}
-
-static err_t exec_pop(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long discarded = 0;
-    return STACK_POP(cpu->stack, discarded);
-}
-
-static err_t exec_out(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->stack, value);
-    if (rc == OK) printf("%ld\n", value);
-    return rc;
-}
-
-static err_t exec_add(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = STACK_POP(cpu->stack, arg2);
-    if (rc != OK) return rc;
-
-    rc = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = arg1 + arg2;
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static err_t exec_sub(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = STACK_POP(cpu->stack, arg2);
-    if (rc != OK) return rc;
-
-    rc = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = arg1 - arg2;
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static err_t exec_mul(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = STACK_POP(cpu->stack, arg2);
-    if (rc != OK) return rc;
-
-    rc = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = arg1 * arg2;
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static err_t exec_div(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = STACK_POP(cpu->stack, arg2);
-    if (rc != OK) return rc;
-
-    rc = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    if (arg2 == 0) return ERR_BAD_ARG;
-
-    long res = arg1 / arg2;
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static err_t exec_qroot(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    err_t rc  = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = (long)sqrt(arg1);
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static err_t exec_sq(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long arg1 = 0;
-    err_t rc  = STACK_POP(cpu->stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = (long)(arg1 * arg1);
-    return STACK_PUSH(cpu->stack, res);
-}
-
-static int ensure_register_index(size_t* out_index, const long* args, size_t arg_count)
-{
-    if (!out_index || !args || arg_count == 0) return 0;
-    long idx = args[0];
-    if (idx < 0 || (size_t)idx >= CPU_REGISTER_COUNT) return 0;
-    *out_index = (size_t)idx;
-    return 1;
-}
-
-static err_t exec_pushr(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
-
-    long value = cpu->x[reg_index].value.value;
-    return STACK_PUSH(cpu->stack, value);
-}
-
-static err_t exec_popr(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
-
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->stack, value);
-    if (rc != OK) return rc;
-
-    cpu->x[reg_index].value.value = (int)value;
-
-    return OK;
-}
-
-static err_t exec_in(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long value = 0;
-    printf("Waiting for input: ");
-    if (scanf("%ld", &value) != 1) return ERR_BAD_ARG;
-
-    return STACK_PUSH(cpu->stack, value);
-}
-
-static err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count)
-{
-    (void)args;
-    (void)arg_count;
-
-    long value = 0;
-    err_t rc   = stack_top(cpu->stack, &value);
-    if (rc != OK) return rc;
-
-    printf("%ld\n", value);
-    return OK;
-}
-
-static err_t switcher(cpu_t* cpu,
-                      const instruction_set instruction,
-                      const long* args, size_t arg_count)
-{
-    static const instruction_executor_fn EXECUTORS[INSTRUCTION_TABLE_CAPACITY] =
+static const instruction_executor_fn EXECUTORS[INSTRUCTION_TABLE_CAPACITY] =
     {
         [HLT]    = exec_hlt,
         [PUSH]   = exec_push,
@@ -331,9 +115,21 @@ static err_t switcher(cpu_t* cpu,
         [PUSHR]  = exec_pushr,
         [POPR]   = exec_popr,
         [IN]     = exec_in,
-        [TOPOUT] = exec_topout
+        [TOPOUT] = exec_topout,
+        [JMP]    = exec_jmp,
+        [JB]     = exec_jb,
+        [JBE]    = exec_jbe,
+        [JA]     = exec_ja,
+        [JAE]    = exec_jae,
+        [JE]     = exec_je,
+        [JNE]    = exec_jne
     };
 
+
+static err_t switcher(cpu_t* cpu,
+                      const instruction_set instruction,
+                      const long* args, size_t arg_count)
+{ 
     if (instruction < 0 || instruction >= INSTRUCTION_TABLE_CAPACITY) return ERR_BAD_ARG;
 
     instruction_executor_fn handler = EXECUTORS[instruction];

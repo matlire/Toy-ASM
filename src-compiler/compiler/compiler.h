@@ -3,7 +3,7 @@
 
 #include "../../libs/logging/logging.h"
 #include "../../libs/stack/stack.h"
-#include "../../libs/instructions_set/instructions_set.h"
+#include "../../libs/instruction_set/instruction_set.h"
 
 #include <ctype.h>
 #include <stdio.h>
