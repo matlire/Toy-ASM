@@ -71,60 +71,42 @@ err_t load_op_data (operational_data_t * const op_data, const char* const IN_FIL
 
 static err_t parse_binary_header(char** cursor,
                                  size_t* remaining,
-                                 instruction_set_version_t* binary_version)
+                                 instruction_set_version_t* binary_version,
+                                 size_t* code_size_out)
 {
-    if (!cursor || !*cursor || !remaining || !binary_version) return ERR_BAD_ARG;
+    if (!cursor || !*cursor || !remaining || !binary_version || !code_size_out)
+        return ERR_BAD_ARG;
 
     if (*remaining < INSTRUCTION_BINARY_HEADER_SIZE) return ERR_BAD_ARG;
 
-    const uint8_t* bytes = (const uint8_t*)(*cursor);
+    instruction_binary_header_t header = { 0 };
+    memcpy(&header, *cursor, sizeof(header));
 
-    if (memcmp(bytes, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN) != 0)
+    if (memcmp(header.magic, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN) != 0)
         return ERR_BAD_ARG;
-
-    unsigned int major = bytes[INSTRUCTION_BINARY_MAGIC_LEN];
-    unsigned int minor = bytes[INSTRUCTION_BINARY_MAGIC_LEN + 1];
 
     instruction_set_version_t runtime = instruction_set_version();
 
-    if (major >  runtime.major) return ERR_BAD_ARG;
-    if (major == runtime.major && 
-        minor >  runtime.minor) return ERR_BAD_ARG;
+    if (header.version_major >  runtime.major) return ERR_BAD_ARG;
+    if (header.version_major == runtime.major &&
+        header.version_minor >  runtime.minor) return ERR_BAD_ARG;
 
-    binary_version->major = major;
-    binary_version->minor = minor;
+    binary_version->major = header.version_major;
+    binary_version->minor = header.version_minor;
 
     *cursor    += INSTRUCTION_BINARY_HEADER_SIZE;
     *remaining -= INSTRUCTION_BINARY_HEADER_SIZE;
 
+    size_t available = *remaining;
+    size_t code_size = (size_t)header.code_size;
+
+    if (code_size > available) return ERR_BAD_ARG;
+
+    *remaining     = code_size;
+    *code_size_out = code_size;
+
     return OK;
 }
-
-static const instruction_executor_fn EXECUTORS[INSTRUCTION_TABLE_CAPACITY] =
-    {
-        [HLT]    = exec_hlt,
-        [PUSH]   = exec_push,
-        [POP]    = exec_pop,
-        [OUT]    = exec_out,
-        [ADD]    = exec_add,
-        [SUB]    = exec_sub,
-        [MUL]    = exec_mul,
-        [DIV]    = exec_div,
-        [QROOT]  = exec_qroot,
-        [SQ]     = exec_sq,
-        [PUSHR]  = exec_pushr,
-        [POPR]   = exec_popr,
-        [IN]     = exec_in,
-        [TOPOUT] = exec_topout,
-        [JMP]    = exec_jmp,
-        [JB]     = exec_jb,
-        [JBE]    = exec_jbe,
-        [JA]     = exec_ja,
-        [JAE]    = exec_jae,
-        [JE]     = exec_je,
-        [JNE]    = exec_jne
-    };
-
 
 static err_t switcher(cpu_t* cpu,
                       const instruction_set instruction,
@@ -132,10 +114,76 @@ static err_t switcher(cpu_t* cpu,
 { 
     if (instruction < 0 || instruction >= INSTRUCTION_TABLE_CAPACITY) return ERR_BAD_ARG;
 
-    instruction_executor_fn handler = EXECUTORS[instruction];
-    if (!handler) return ERR_BAD_ARG;
+    err_t rc = OK;
+    switch (instruction)
+    {
+        case HLT:
+            rc = exec_hlt(cpu, args, arg_count);
+            break;
+        case PUSH:
+            rc = exec_push(cpu, args, arg_count);
+            break;
+        case POP:
+            rc = exec_pop(cpu, args, arg_count);
+            break;
+        case OUT:
+            rc = exec_out(cpu, args, arg_count);
+            break;
+        case ADD:
+            rc = exec_add(cpu, args, arg_count);
+            break;
+        case SUB:
+            rc = exec_sub(cpu, args, arg_count);
+            break;
+        case MUL:
+            rc = exec_mul(cpu, args, arg_count);
+            break;
+        case DIV:
+            rc = exec_div(cpu, args, arg_count);
+            break;
+        case QROOT:
+            rc = exec_qroot(cpu, args, arg_count);
+            break;
+        case SQ:
+            rc = exec_sq(cpu, args, arg_count);
+            break;
+        case IN:
+            rc = exec_in(cpu, args, arg_count);
+            break;
+        case TOPOUT:
+            rc = exec_topout(cpu, args, arg_count);
+            break;
+        case PUSHR:
+            rc = exec_pushr(cpu, args, arg_count);
+            break;
+        case POPR:
+            rc = exec_popr(cpu, args, arg_count);
+            break;
+        case JMP:
+            rc = exec_jmp(cpu, args, arg_count);
+            break;
+        case JB:
+            EXEC_COND_JUMP(cpu, args, arg_count, <);
+            break;
+        case JBE:
+            EXEC_COND_JUMP(cpu, args, arg_count, <=);
+            break;
+        case JA:
+            EXEC_COND_JUMP(cpu, args, arg_count, >);
+            break;
+        case JAE:
+            EXEC_COND_JUMP(cpu, args, arg_count, >=);
+            break;
+        case JE:
+            EXEC_COND_JUMP(cpu, args, arg_count, ==);
+            break;
+        case JNE:
+            EXEC_COND_JUMP(cpu, args, arg_count, !=);
+            break;
+        default: break;
+    }
 
-    return handler(cpu, args, arg_count);
+    return rc;
 }
 
 static err_t exec_loop(cpu_t* cpu)
@@ -153,6 +201,8 @@ static err_t exec_loop(cpu_t* cpu)
 
         uint8_t opcode      = (uint8_t)cpu->code[cpu->pc++];
         uint8_t encoded_arg = (uint8_t)cpu->code[cpu->pc++];
+
+        log_printf(DEBUG, "exec: pc=%zu opcode=%u args=%u", cpu->pc - 2, opcode, encoded_arg);
 
         instruction_set instruction = (instruction_set)opcode;
         const instruction_t* meta   = instruction_get(instruction);
@@ -215,7 +265,8 @@ err_t load_program(operational_data_t * const op_data, cpu_t* cpu)
     size_t remaining = read_bytes;
     instruction_set_version_t binary_version = { 0 };
 
-    err_t header_rc = parse_binary_header(&cursor, &remaining, &binary_version);
+    size_t code_size = 0;
+    err_t header_rc = parse_binary_header(&cursor, &remaining, &binary_version, &code_size);
     if (header_rc != OK)
     {
         free(op_data->buffer);
@@ -225,7 +276,7 @@ err_t load_program(operational_data_t * const op_data, cpu_t* cpu)
 
     cpu->binary_version = binary_version;
     cpu->code           = cursor;
-    cpu->code_size      = remaining;
+    cpu->code_size      = code_size;
     cpu->pc             = 0;
 
     return OK;

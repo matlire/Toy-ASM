@@ -5,14 +5,6 @@
 
 #include "../executor_types.h"
 
-#define CONDITIONAL_JUMP_LIST(X) \
-    X(exec_jb,  cmp_jb,  <)      \
-    X(exec_jbe, cmp_jbe, <=)     \
-    X(exec_ja,  cmp_ja,  >)      \
-    X(exec_jae, cmp_jae, >=)     \
-    X(exec_je,  cmp_je,  ==)     \
-    X(exec_jne, cmp_jne, !=)     \
-
 typedef err_t (*instruction_executor_fn)(cpu_t* cpu,
                 const long* args, size_t arg_count);
 
@@ -33,10 +25,44 @@ err_t exec_popr  (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_in    (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count);
 
-err_t exec_jmp   (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_jmp (cpu_t* cpu, const long* args, size_t arg_count);
 
-#define DECLARE_COND_JUMP(fn, cmp, op) err_t fn(cpu_t* cpu, const long* args, size_t arg_count);
-CONDITIONAL_JUMP_LIST(DECLARE_COND_JUMP)
-#undef DECLARE_COND_JUMP
+static inline err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
+{
+    if (!cpu || !lhs || !rhs) return ERR_BAD_ARG;
+
+    long rhs_val = 0;
+    err_t rc     = STACK_POP(cpu->stack, rhs_val);
+    if (rc != OK) return rc;
+
+    long lhs_val = 0;
+    rc           = STACK_POP(cpu->stack, lhs_val);
+    if (rc != OK) return rc;
+
+    *lhs = lhs_val;
+    *rhs = rhs_val;
+
+    return OK;
+}
+
+#define EXEC_JUMP_BODY(cpu, args, arg_count, condition)     \
+    do {                                                    \
+        if (!(cpu)) return ERR_BAD_ARG;                     \
+        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG; \
+                                                            \
+        long lhs = 0;                                       \
+        long rhs = 0;                                       \
+                                                            \
+        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);    \
+        if (rc != OK) return rc;                            \
+                                                            \
+        if (condition)                                      \
+            return exec_jmp((cpu), (args), (arg_count));    \
+                                                            \
+        return OK;                                          \
+    } while (0)
+
+#define EXEC_COND_JUMP(cpu, args, arg_count, op)                \
+    EXEC_JUMP_BODY((cpu), (args), (arg_count), ((lhs) op (rhs)))
 
 #endif

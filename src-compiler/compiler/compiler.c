@@ -14,7 +14,7 @@ err_t load_op_data (operational_data_t * const op_data,
         return ERR_BAD_ARG;
     }
 
-    FILE* out_file = load_file(OUT_FILE, "a");
+    FILE* out_file = load_file(OUT_FILE, "w+b");
     if (!CHECK(ERROR, out_file != NULL, "CAN'T OPEN OUTPUT FILE!"))
     {
         fclose(in_file);
@@ -109,14 +109,14 @@ size_t parse_file(operational_data_t * const op_data)
 
     char* cursor = op_data->buffer;
 
-    instruction_set_version_t version              = instruction_set_version();
-    uint8_t header[INSTRUCTION_BINARY_HEADER_SIZE] = { 0 };
+    instruction_set_version_t   version = instruction_set_version();
+    instruction_binary_header_t header  = { 0 };
 
-    memcpy(header, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN);
-    header[INSTRUCTION_BINARY_MAGIC_LEN]     = (uint8_t)version.major;
-    header[INSTRUCTION_BINARY_MAGIC_LEN + 1] = (uint8_t)version.minor;
+    memcpy(header.magic, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN);
+    header.version_major = (uint8_t)version.major;
+    header.version_minor = (uint8_t)version.minor;
 
-    size_t header_written = fwrite(header, 1, sizeof(header), op_data->out_file);
+    size_t header_written = fwrite(&header, 1, sizeof(header), op_data->out_file);
     if (header_written != sizeof(header))
     {
         log_printf(ERROR, "parse_file: failed to write binary header");
@@ -128,6 +128,33 @@ size_t parse_file(operational_data_t * const op_data)
     size_t body_written  = parse_loop(op_data, &cursor);
 
     if (body_written == 0) return 0;
+
+    if (body_written > UINT32_MAX)
+    {
+        log_printf(ERROR, "parse_file: body exceeds maximum encodable size (%zu bytes)", body_written);
+        return 0;
+    }
+
+    header.code_size = (uint32_t)body_written;
+
+    if (fseek(op_data->out_file, 0L, SEEK_SET) != 0)
+    {
+        log_printf(ERROR, "parse_file: failed to seek for header rewrite");
+        return 0;
+    }
+
+    size_t rewrite = fwrite(&header, 1, sizeof(header), op_data->out_file);
+    if (rewrite != sizeof(header))
+    {
+        log_printf(ERROR, "parse_file: failed to update binary header");
+        return 0;
+    }
+
+    if (fflush(op_data->out_file) != 0)
+    {
+        log_printf(ERROR, "parse_file: failed to flush output stream");
+        return 0;
+    }
 
     return header_written + body_written;
 }

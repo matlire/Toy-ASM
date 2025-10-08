@@ -12,8 +12,17 @@
 #define INSTRUCTION_SET_VERSION_MAJOR 0U
 #define INSTRUCTION_SET_VERSION_MINOR 3U
 
-#define INSTRUCTION_BINARY_MAGIC_LEN   4U
-#define INSTRUCTION_BINARY_HEADER_SIZE (INSTRUCTION_BINARY_MAGIC_LEN + 2U)
+#define INSTRUCTION_BINARY_MAGIC_LEN 4U
+
+typedef struct
+{
+    uint8_t  magic[INSTRUCTION_BINARY_MAGIC_LEN];
+    uint8_t  version_major;
+    uint8_t  version_minor;
+    uint32_t code_size;
+} instruction_binary_header_t;
+
+#define INSTRUCTION_BINARY_HEADER_SIZE (sizeof(instruction_binary_header_t))
 
 extern const uint8_t INSTRUCTION_BINARY_MAGIC[INSTRUCTION_BINARY_MAGIC_LEN];
 
