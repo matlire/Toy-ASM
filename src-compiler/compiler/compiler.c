@@ -38,14 +38,17 @@ err_t load_op_data (operational_data_t * const op_data,
     return OK;
 }
 
-static size_t parse_loop(const operational_data_t * const op_data, char** cursor)
+static size_t parse_loop(const operational_data_t * const op_data,
+                        char**  cursor,
+                        size_t* labels,
+                        size_t  iter)
 {
-    if (!CHECK(ERROR, cursor != NULL && *cursor != NULL && op_data != NULL, 
-              "parse_loop: some data not provided")) return 0;
+    if (!CHECK(ERROR, cursor != NULL && *cursor != NULL && op_data != NULL,
+              "parse_loop: some data not provided")) return SIZE_MAX;
 
     char* p = *cursor;
-    
-    size_t total_written = 0;
+    size_t label_offset = 0;
+    size_t total_bytes  = 0;
     
     while (*p)
     {
@@ -63,18 +66,63 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
         if (*trimmed == '\0' || *trimmed == ';')
             { *p = saved; if (*p != '\0') p++; continue; }
 
+        if (trimmed[0] == ':' && isdigit((unsigned char)trimmed[1]))
+        {
+            char* endptr = NULL;
+            long idx = strtol(trimmed + 1, &endptr, 10);
+
+            if (!endptr || *endptr != '\0' || idx < 0 || idx >= 10)
+            {
+                log_printf(ERROR, "parse_loop: invalid label '%s'", trimmed);
+                *p = saved;
+                return UNDEF;
+            }
+
+            size_t label_idx = (size_t)idx;
+
+            if (iter == 0)
+            {
+                if (labels[label_idx] != UNDEF && labels[label_idx] != label_offset)
+                {
+                    log_printf(ERROR, "parse_loop: label '%s' redefined", trimmed);
+                    *p = saved;
+                    return UNDEF;
+                }
+
+                labels[label_idx] = label_offset;
+            }
+            else
+            {
+                if (labels[label_idx] == UNDEF)
+                {
+                    log_printf(ERROR, "parse_loop: label '%s' undefined", trimmed);
+                    *p = saved;
+                    return UNDEF;
+                }
+            }
+
+            *p = saved;
+            if (*p != '\0') p++;
+            continue;
+        }
+
         unsigned char encoded[MAX_LINE_LEN] = { 0 };
-        size_t  encoded_len           = parse_line(trimmed, encoded);
+        size_t encoded_len = parse_line(trimmed, encoded, labels, iter);
 
         if (encoded_len == 0)
-            { *p = saved; log_printf(ERROR, "parse_file: failed to parse line '%s'", trimmed); return 0; }
+            { *p = saved; log_printf(ERROR, "parse_file: failed to parse line '%s'", trimmed); 
+                return SIZE_MAX; }
 
-        size_t written = fwrite(encoded, 1, encoded_len, op_data->out_file);
+        if (iter == 1)
+        {
+            size_t written = fwrite(encoded, 1, encoded_len, op_data->out_file);
+            if (written != encoded_len)
+                { *p = saved; log_printf(ERROR, "parse_file: failed to write encoded instruction"); 
+                    return SIZE_MAX; }
+        }
 
-        if (written != encoded_len)
-            { *p = saved; log_printf(ERROR, "parse_file: failed to write encoded instruction"); return 0; }
-
-        total_written += written;
+        label_offset += encoded_len;
+        total_bytes  += encoded_len;
 
         *p = saved;
 
@@ -82,8 +130,7 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
     }
 
     *cursor = p;
-
-    return total_written;
+    return total_bytes;
 }
 
 size_t parse_file(operational_data_t * const op_data)
@@ -125,8 +172,16 @@ size_t parse_file(operational_data_t * const op_data)
         return 0;
     }
 
-    size_t body_written  = parse_loop(op_data, &cursor);
+    size_t labels[10] = { 0 };
+    for (size_t i = 0; i < 10; i++) labels[i] = UNDEF;
 
+    size_t labels_bytes = parse_loop(op_data, &cursor, labels, 0);
+    if (labels_bytes == UNDEF)
+        { free(op_data->buffer); op_data->buffer = NULL; return 0; }
+
+    cursor = op_data->buffer;
+
+    size_t body_written = parse_loop(op_data, &cursor, labels, 1);
     if (body_written == 0) return 0;
 
     if (body_written > UINT32_MAX)
@@ -159,10 +214,12 @@ size_t parse_file(operational_data_t * const op_data)
     return header_written + body_written;
 }
 
-size_t parse_line(const char* in, unsigned char * const out)
+size_t parse_line(const char* in, unsigned char * const out,
+                  size_t* labels, size_t iter)
 {
-    if(!CHECK(ERROR, in != NULL && out != NULL, 
-              "parse_line: some data not provided")) return 0;
+    if(!CHECK(ERROR, in != NULL && out != NULL && labels != NULL,
+              "parse_line: some data not provided"))
+        return 0;
 
     const char* cursor = in;
 
@@ -179,7 +236,7 @@ size_t parse_line(const char* in, unsigned char * const out)
 
     if (instruction_len == MAX_INSTRUCTION_LEN - 1 && *cursor && !isspace((unsigned char)*cursor))
         { log_printf(ERROR, "parse_line: instruction token too long"); return 0; }
-
+ 
     instruction_set ins = map_instruction(instruction);
 
     if (ins == UNDEF)
@@ -206,6 +263,22 @@ size_t parse_line(const char* in, unsigned char * const out)
             val = strtol(digits, &endptr, 10);
             if ((const char*)endptr == digits)
                 { log_printf(ERROR, "parse_line: invalid register for '%s'", instruction); return 0; }
+        } else if ((*cursor == ':') && isdigit((unsigned char)cursor[1]))
+        {
+            const char* digits = cursor + 1;
+            val = strtol(digits, &endptr, 10);
+            if ((const char*)endptr == digits)
+                { log_printf(ERROR, "parse_line: invalid label for '%s'", instruction); return 0; }
+            
+            size_t label_idx = (size_t)val;
+            if (iter == 0) val = 0;
+            else
+            {
+                if (labels[label_idx] == UNDEF)
+                    { log_printf(ERROR, "parse_line: label :%zu used before definition", label_idx);
+                    return 0; }
+                val = (long)labels[label_idx];
+            }
         } else
         {
             val = strtol(cursor, &endptr, 10);

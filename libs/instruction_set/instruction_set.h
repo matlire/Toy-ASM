@@ -10,7 +10,7 @@
 #define MAX_INSTRUCTION_ARGS 4
 
 #define INSTRUCTION_SET_VERSION_MAJOR 0U
-#define INSTRUCTION_SET_VERSION_MINOR 3U
+#define INSTRUCTION_SET_VERSION_MINOR 4U
 
 #define INSTRUCTION_BINARY_MAGIC_LEN 4U
 
@@ -19,8 +19,8 @@ typedef struct
     unsigned char magic[INSTRUCTION_BINARY_MAGIC_LEN];
     unsigned char version_major;
     unsigned char version_minor;
-    uint32_t      code_size;
-}__attribute__((packed)) instruction_binary_header_t;
+    size_t        code_size;
+} instruction_binary_header_t;
 
 #define INSTRUCTION_BINARY_HEADER_SIZE (sizeof(instruction_binary_header_t))
 
@@ -33,18 +33,22 @@ typedef struct
 } instruction_set_version_t;
 
 #define INSTRUCTION_LIST(X)        \
-    X(HLT,    "HLT",    0,   0)    \
-    X(PUSH,   "PUSH",   1,   1)    \
-    X(POP,    "POP",    0,   2)    \
-    X(OUT,    "OUT",    0,   3)    \
-    X(TOPOUT, "TOPOUT", 0,   4)    \
-    X(IN,     "IN",     0,   5)    \
+    X(NOP,    "NOP",    0,   0)    \
+                                   \
+    X(HLT,    "HLT",    0,   1)    \
+    X(PUSH,   "PUSH",   1,   2)    \
+    X(POP,    "POP",    0,   3)    \
+    X(OUT,    "OUT",    0,   4)    \
+    X(TOPOUT, "TOPOUT", 0,   5)    \
+                                   \
+    X(IN,     "IN",     0,   6)    \
     X(ADD,    "ADD",    0,  10)    \
     X(SUB,    "SUB",    0,  11)    \
     X(MUL,    "MUL",    0,  12)    \
     X(DIV,    "DIV",    0,  13)    \
     X(QROOT,  "QROOT",  0,  14)    \
     X(SQ,     "SQ",     0,  15)    \
+                                   \
     X(JMP,    "JMP",    1,  16)    \
     X(JB,     "JB",     1,  17)    \
     X(JBE,    "JBE",    1,  18)    \
@@ -53,6 +57,7 @@ typedef struct
     X(JE,     "JE",     1,  21)    \
     X(JNE,    "JNE",    1,  22)    \
     X(PUSHR,  "PUSHR",  1,  33)    \
+                                   \
     X(POPR,   "POPR",   1,  34) 
 
 typedef enum

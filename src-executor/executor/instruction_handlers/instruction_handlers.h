@@ -45,23 +45,23 @@ static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
     return OK;
 }
 
-#define DEFINE_COND_JUMP_FUNC(name, op)                               \
+#define DEFINE_COND_JUMP_FUNC(name, op)                                      \
     static err_t exec_##name(cpu_t* cpu, const long* args, size_t arg_count) \
-    {                                                                 \
-        if (!(cpu)) return ERR_BAD_ARG;                               \
-        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG;           \
-                                                                      \
-        long lhs = 0;                                                 \
-        long rhs = 0;                                                 \
-                                                                      \
-        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);              \
-        if (rc != OK) return rc;                                      \
-                                                                      \
-        if (lhs op rhs)                                               \
-            return exec_jmp((cpu), (args), (arg_count));              \
-                                                                      \
-        return OK;                                                    \
-    }                                                                 \
+    {                                                                        \
+        if (!(cpu)) return ERR_BAD_ARG;                                      \
+        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG;                  \
+                                                                             \
+        long lhs = 0;                                                        \
+        long rhs = 0;                                                        \
+                                                                             \
+        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);                     \
+        if (rc != OK) return rc;                                             \
+                                                                             \
+        if (lhs op rhs)                                                      \
+            return exec_jmp((cpu), (args), (arg_count));                     \
+                                                                             \
+        return OK;                                                           \
+    }                                                                        \
 
 DEFINE_COND_JUMP_FUNC(jb,  <);
 DEFINE_COND_JUMP_FUNC(jbe, <=);

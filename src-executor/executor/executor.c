@@ -141,6 +141,7 @@ static err_t switcher(cpu_t* cpu,
         case JAE:    rc = exec_jae   (cpu, args, arg_count); break;
         case JE:     rc = exec_je    (cpu, args, arg_count); break;
         case JNE:    rc = exec_jne   (cpu, args, arg_count); break;
+
         default: break;
     }
 

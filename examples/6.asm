@@ -1,0 +1,77 @@
+; x^2 + 14x + 45 = 0
+;      D  = 16
+; sqrt(D) = 4
+; num of roots = 2
+; x1 = -5; x2 = -9
+
+IN
+POPR x0
+IN
+POPR x1
+IN
+POPR x2
+
+PUSHR x0
+PUSH 0
+JNE :1
+PUSH -1
+OUT
+HLT
+
+:1
+PUSHR x1 ; pc = 52
+SQ
+PUSH 4
+PUSHR x0
+PUSHR x2
+MUL
+MUL
+SUB
+QROOT
+POPR x3
+
+PUSHR x3
+PUSH 0
+JNE :2
+PUSH 0
+OUT
+HLT
+
+:2
+PUSHR x1 ; pc = 120
+PUSH -1
+MUL
+PUSHR x3
+SUB
+PUSH 2
+PUSHR x0
+MUL
+DIV
+POPR x4
+
+PUSHR x1
+PUSH -1
+MUL
+PUSHR x3
+ADD
+PUSH 2
+PUSHR x0
+MUL
+DIV
+POPR x5
+
+PUSH 1
+PUSHR x4
+PUSHR x5
+JE :3
+PUSH 1
+ADD
+
+:3
+OUT      ; pc = 240
+PUSHR x4
+PUSHR x5
+OUT
+OUT
+
+HLT
