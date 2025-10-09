@@ -16,15 +16,15 @@
 
 typedef struct
 {
-    uint8_t  magic[INSTRUCTION_BINARY_MAGIC_LEN];
-    uint8_t  version_major;
-    uint8_t  version_minor;
-    uint32_t code_size;
-} instruction_binary_header_t;
+    unsigned char magic[INSTRUCTION_BINARY_MAGIC_LEN];
+    unsigned char version_major;
+    unsigned char version_minor;
+    uint32_t      code_size;
+}__attribute__((packed)) instruction_binary_header_t;
 
 #define INSTRUCTION_BINARY_HEADER_SIZE (sizeof(instruction_binary_header_t))
 
-extern const uint8_t INSTRUCTION_BINARY_MAGIC[INSTRUCTION_BINARY_MAGIC_LEN];
+extern const unsigned char INSTRUCTION_BINARY_MAGIC[INSTRUCTION_BINARY_MAGIC_LEN];
 
 typedef struct
 {

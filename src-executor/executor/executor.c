@@ -117,69 +117,30 @@ static err_t switcher(cpu_t* cpu,
     err_t rc = OK;
     switch (instruction)
     {
-        case HLT:
-            rc = exec_hlt(cpu, args, arg_count);
-            break;
-        case PUSH:
-            rc = exec_push(cpu, args, arg_count);
-            break;
-        case POP:
-            rc = exec_pop(cpu, args, arg_count);
-            break;
-        case OUT:
-            rc = exec_out(cpu, args, arg_count);
-            break;
-        case ADD:
-            rc = exec_add(cpu, args, arg_count);
-            break;
-        case SUB:
-            rc = exec_sub(cpu, args, arg_count);
-            break;
-        case MUL:
-            rc = exec_mul(cpu, args, arg_count);
-            break;
-        case DIV:
-            rc = exec_div(cpu, args, arg_count);
-            break;
-        case QROOT:
-            rc = exec_qroot(cpu, args, arg_count);
-            break;
-        case SQ:
-            rc = exec_sq(cpu, args, arg_count);
-            break;
-        case IN:
-            rc = exec_in(cpu, args, arg_count);
-            break;
-        case TOPOUT:
-            rc = exec_topout(cpu, args, arg_count);
-            break;
-        case PUSHR:
-            rc = exec_pushr(cpu, args, arg_count);
-            break;
-        case POPR:
-            rc = exec_popr(cpu, args, arg_count);
-            break;
-        case JMP:
-            rc = exec_jmp(cpu, args, arg_count);
-            break;
-        case JB:
-            EXEC_COND_JUMP(cpu, args, arg_count, <);
-            break;
-        case JBE:
-            EXEC_COND_JUMP(cpu, args, arg_count, <=);
-            break;
-        case JA:
-            EXEC_COND_JUMP(cpu, args, arg_count, >);
-            break;
-        case JAE:
-            EXEC_COND_JUMP(cpu, args, arg_count, >=);
-            break;
-        case JE:
-            EXEC_COND_JUMP(cpu, args, arg_count, ==);
-            break;
-        case JNE:
-            EXEC_COND_JUMP(cpu, args, arg_count, !=);
-            break;
+        case HLT:    rc = exec_hlt   (cpu, args, arg_count); break;
+        case PUSH:   rc = exec_push  (cpu, args, arg_count); break;
+        case POP:    rc = exec_pop   (cpu, args, arg_count); break;
+        case OUT:    rc = exec_out   (cpu, args, arg_count); break;
+        
+        case ADD:    rc = exec_add   (cpu, args, arg_count); break;
+        case SUB:    rc = exec_sub   (cpu, args, arg_count); break;
+        case MUL:    rc = exec_mul   (cpu, args, arg_count); break;
+        case DIV:    rc = exec_div   (cpu, args, arg_count); break;
+        case QROOT:  rc = exec_qroot (cpu, args, arg_count); break;
+        case SQ:     rc = exec_sq    (cpu, args, arg_count); break;
+
+        case IN:     rc = exec_in    (cpu, args, arg_count); break;
+        case TOPOUT: rc = exec_topout(cpu, args, arg_count); break;
+        case PUSHR:  rc = exec_pushr (cpu, args, arg_count); break;
+        case POPR:   rc = exec_popr  (cpu, args, arg_count); break;
+
+        case JMP:    rc = exec_jmp   (cpu, args, arg_count); break;
+        case JB:     rc = exec_jb    (cpu, args, arg_count); break;
+        case JBE:    rc = exec_jbe   (cpu, args, arg_count); break;
+        case JA:     rc = exec_ja    (cpu, args, arg_count); break;
+        case JAE:    rc = exec_jae   (cpu, args, arg_count); break;
+        case JE:     rc = exec_je    (cpu, args, arg_count); break;
+        case JNE:    rc = exec_jne   (cpu, args, arg_count); break;
         default: break;
     }
 
@@ -199,8 +160,8 @@ static err_t exec_loop(cpu_t* cpu)
             break;
         }
 
-        uint8_t opcode      = (uint8_t)cpu->code[cpu->pc++];
-        uint8_t encoded_arg = (uint8_t)cpu->code[cpu->pc++];
+        unsigned char opcode      = (unsigned char)cpu->code[cpu->pc++];
+        unsigned char encoded_arg = (unsigned char)cpu->code[cpu->pc++];
 
         log_printf(DEBUG, "exec: pc=%zu opcode=%u args=%u", cpu->pc - 2, opcode, encoded_arg);
 

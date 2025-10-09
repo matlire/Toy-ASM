@@ -63,7 +63,7 @@ static size_t parse_loop(const operational_data_t * const op_data, char** cursor
         if (*trimmed == '\0' || *trimmed == ';')
             { *p = saved; if (*p != '\0') p++; continue; }
 
-        uint8_t encoded[MAX_LINE_LEN] = { 0 };
+        unsigned char encoded[MAX_LINE_LEN] = { 0 };
         size_t  encoded_len           = parse_line(trimmed, encoded);
 
         if (encoded_len == 0)
@@ -113,8 +113,8 @@ size_t parse_file(operational_data_t * const op_data)
     instruction_binary_header_t header  = { 0 };
 
     memcpy(header.magic, INSTRUCTION_BINARY_MAGIC, INSTRUCTION_BINARY_MAGIC_LEN);
-    header.version_major = (uint8_t)version.major;
-    header.version_minor = (uint8_t)version.minor;
+    header.version_major = (unsigned char)version.major;
+    header.version_minor = (unsigned char)version.minor;
 
     size_t header_written = fwrite(&header, 1, sizeof(header), op_data->out_file);
     if (header_written != sizeof(header))
@@ -159,7 +159,7 @@ size_t parse_file(operational_data_t * const op_data)
     return header_written + body_written;
 }
 
-size_t parse_line(const char* in, uint8_t * const out)
+size_t parse_line(const char* in, unsigned char * const out)
 {
     if(!CHECK(ERROR, in != NULL && out != NULL, 
               "parse_line: some data not provided")) return 0;
@@ -192,8 +192,8 @@ size_t parse_line(const char* in, uint8_t * const out)
     while (*cursor && isspace((unsigned char)*cursor)) cursor++;
 
     size_t total = 0;
-    out[total++] = (uint8_t)meta->id;
-    out[total++] = (uint8_t)meta->expected_args;
+    out[total++] = (unsigned char)meta->id;
+    out[total++] = (unsigned char)meta->expected_args;
 
     for (size_t arg_idx = 0; arg_idx < meta->expected_args; ++arg_idx)
     {

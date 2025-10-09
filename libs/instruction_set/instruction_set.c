@@ -1,6 +1,6 @@
 #include "instruction_set.h"
 
-const uint8_t INSTRUCTION_BINARY_MAGIC[INSTRUCTION_BINARY_MAGIC_LEN] =
+const unsigned char INSTRUCTION_BINARY_MAGIC[INSTRUCTION_BINARY_MAGIC_LEN] =
 {
     'T', 'A', 'S', 'M'
 };

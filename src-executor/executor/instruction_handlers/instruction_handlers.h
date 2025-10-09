@@ -27,7 +27,7 @@ err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count);
 
 err_t exec_jmp (cpu_t* cpu, const long* args, size_t arg_count);
 
-static inline err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
+static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {
     if (!cpu || !lhs || !rhs) return ERR_BAD_ARG;
 
@@ -45,24 +45,29 @@ static inline err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
     return OK;
 }
 
-#define EXEC_JUMP_BODY(cpu, args, arg_count, condition)     \
-    do {                                                    \
-        if (!(cpu)) return ERR_BAD_ARG;                     \
-        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG; \
-                                                            \
-        long lhs = 0;                                       \
-        long rhs = 0;                                       \
-                                                            \
-        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);    \
-        if (rc != OK) return rc;                            \
-                                                            \
-        if (condition)                                      \
-            return exec_jmp((cpu), (args), (arg_count));    \
-                                                            \
-        return OK;                                          \
-    } while (0)
+#define DEFINE_COND_JUMP_FUNC(name, op)                               \
+    static err_t exec_##name(cpu_t* cpu, const long* args, size_t arg_count) \
+    {                                                                 \
+        if (!(cpu)) return ERR_BAD_ARG;                               \
+        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG;           \
+                                                                      \
+        long lhs = 0;                                                 \
+        long rhs = 0;                                                 \
+                                                                      \
+        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);              \
+        if (rc != OK) return rc;                                      \
+                                                                      \
+        if (lhs op rhs)                                               \
+            return exec_jmp((cpu), (args), (arg_count));              \
+                                                                      \
+        return OK;                                                    \
+    }                                                                 \
 
-#define EXEC_COND_JUMP(cpu, args, arg_count, op)                \
-    EXEC_JUMP_BODY((cpu), (args), (arg_count), ((lhs) op (rhs)))
+DEFINE_COND_JUMP_FUNC(jb,  <);
+DEFINE_COND_JUMP_FUNC(jbe, <=);
+DEFINE_COND_JUMP_FUNC(ja,  >);
+DEFINE_COND_JUMP_FUNC(jae, >=);
+DEFINE_COND_JUMP_FUNC(je,  ==);
+DEFINE_COND_JUMP_FUNC(jne, !=);
 
 #endif
