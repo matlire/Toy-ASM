@@ -17,28 +17,47 @@ int main(const int argc, char* const argv[])
     if(!CHECK(ERROR, res == 1 && IN_FILE != NULL, "FILE NOT PROVIDED!"))
         { printf("FILE NOT PROVIDED!\n"); return 1; }
     
+    /*
+        Load operational data
+    */
     operational_data_t op_data = { 0 };
-
     err_t rc = load_op_data(&op_data, IN_FILE);
+
     if (rc != OK) return 1;
 
-    CPU_INIT(cpu);
-    if (cpu_init_rc_cpu != OK)
+    /*
+        Init CPU
+    */
+    cpu_t cpu = { 0 };
+    rc        = cpu_init(&cpu);
+
+    if (!CHECK(ERROR, rc == OK, "main: cpu init failed"))
     {
-        printf("CPU INIT ERROR: %s\n", err_str(cpu_init_rc_cpu));
-        free(op_data.buffer);
-        fclose(op_data.in_file);
+        printf("CPU INIT FAILED\n");
         return 1;
     }
 
+    /*
+        Load programm from bytecode, execute if
+    */
+
     rc = load_program(&op_data, &cpu);
-    if (rc == OK)
+
+    if (!CHECK(ERROR, rc == OK, "main: failed to load program"))
     {
-        rc = exec_stream(&cpu);
-        if (rc != OK) printf("EXEC ERROR: %s\n", err_str(rc));
-    } else
+        printf("LOAD PROGRAM FAILED\n");
+        return 1;
+    }
+
+    /*
+        Exec programm
+    */
+    rc = exec_stream(&cpu);
+    
+    if (!CHECK(ERROR, rc == OK, "main: execute program stream failed"))
     {
-        printf("LOAD ERROR: %s\n", err_str(rc));
+        printf("EXEC STREAM FAILED\n");
+        return 1;
     }
 
     cpu_destroy(&cpu);
