@@ -48,7 +48,7 @@ static const char* pass_title(int pass)
 
 static void format_bytecode(const unsigned char* data,
                             size_t size,
-                            char* out,
+                            char*  out,
                             size_t out_size)
 {
     if (!out || out_size == 0)
@@ -65,7 +65,7 @@ static void format_bytecode(const unsigned char* data,
 
 static void format_args(const unsigned char* data,
                         size_t size,
-                        char* out,
+                        char*  out,
                         size_t out_size)
 {
     if (!out || out_size == 0)
@@ -107,7 +107,7 @@ static void format_args(const unsigned char* data,
 }
 
 static void format_assembly(const char* src,
-                            char* dst,
+                            char*  dst,
                             size_t dst_size)
 {
     if (!dst || dst_size == 0)

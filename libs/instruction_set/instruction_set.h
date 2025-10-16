@@ -59,6 +59,8 @@ typedef struct
     X(JE,     "JE",     1,  21)    \
     X(JNE,    "JNE",    1,  22)    \
                                    \
+    X(DUMP,   "DUMP",   0,  23)    \
+                                   \
     X(PUSHR,  "PUSHR",  1,  33)    \
     X(POPR,   "POPR",   1,  34)    \
     X(PUSHM,  "PUSHM",  1,  35)    \

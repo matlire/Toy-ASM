@@ -383,7 +383,7 @@ err_t stack_dump (logging_level level, const stack_id stack, err_t code, const c
         IFLOG(level, res_str);
     }
 
-    IFLOG(level, "=== END STACK DUMP ===\n");
+    IFLOG(level, "=== END STACK DUMP ===");
 
     return OK;
 }

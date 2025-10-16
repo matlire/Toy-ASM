@@ -50,8 +50,8 @@ void cpu_dump_registers(const cpu_t* cpu, logging_level level)
 }
 
 static void dump_single_stack(logging_level level,
-                              const char* label,
-                              stack_id stack)
+                              const char*   label,
+                              stack_id      stack)
 {
     if (stack == (size_t)-1)
     {
@@ -112,7 +112,7 @@ static void dump_code_bytes(const unsigned char* code,
     {
         size_t line_bytes = (to_dump > CODE_DUMP_BYTES_PER_LINE) ? CODE_DUMP_BYTES_PER_LINE : to_dump;
 
-        char hex_buf[CODE_DUMP_BYTES_PER_LINE * 3 + 1] = { 0 };
+        char   hex_buf[CODE_DUMP_BYTES_PER_LINE * 3 + 1] = { 0 };
         size_t hex_len = 0;
 
         for (size_t i = 0; i < line_bytes; ++i)
@@ -162,6 +162,8 @@ void cpu_dump_state(const cpu_t* cpu, logging_level level)
         return;
     }
 
+    log_printf(level, "");
+    log_printf(level, "");
     log_printf(level, "=== CPU STATE ===");
     cpu_dump_registers(cpu, level);
     cpu_dump_stack(cpu, level);
@@ -169,12 +171,12 @@ void cpu_dump_state(const cpu_t* cpu, logging_level level)
     log_printf(level, "=================");
 }
 
-void cpu_dump_step(const cpu_t* cpu,
-                   size_t pc_before,
+void cpu_dump_step(const cpu_t*    cpu,
+                   size_t          pc_before,
                    instruction_set opcode,
-                   const long* args,
-                   size_t arg_count,
-                   logging_level level)
+                   const long*     args,
+                   size_t          arg_count,
+                   logging_level   level)
 {
     if (!cpu)
     {
@@ -199,12 +201,10 @@ void cpu_dump_step(const cpu_t* cpu,
                    value,
                    (unsigned long)value);
     }
-
-    cpu_dump_registers(cpu, level);
 }
 
-void cpu_dump_final_state(const cpu_t* cpu,
-                          err_t rc,
+void cpu_dump_final_state(const cpu_t*  cpu,
+                          err_t         rc,
                           logging_level level)
 {
     const char* status = err_str(rc);

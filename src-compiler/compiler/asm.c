@@ -378,8 +378,8 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
         return SIZE_MAX;
     }
 
-    char* cursor  = as->source;
-    size_t offset = 0;
+    char* cursor   = as->source;
+    size_t offset  = 0;
     size_t line_no = 1;
 
     while (*cursor)
@@ -389,8 +389,8 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
 
         char* line_start = cursor;
         while (*cursor && *cursor != '\n' && *cursor != '\r') cursor++;
-        char saved = *cursor;
-        *cursor = '\0';
+        char saved          = *cursor;
+        *cursor             = '\0';
         size_t current_line = line_no++;
 
         char* trimmed = line_start;

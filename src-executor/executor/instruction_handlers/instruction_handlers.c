@@ -241,3 +241,13 @@ err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count)
     long value = cpu->ram[addr];
     return STACK_PUSH(cpu->code_stack, value);
 }
+
+err_t exec_dump  (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    (void)args;
+    (void)arg_count;
+
+    cpu_dump_state(cpu, DEBUG);
+
+    return OK;
+}

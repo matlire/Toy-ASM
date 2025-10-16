@@ -188,6 +188,8 @@ static err_t switcher(cpu_t* cpu,
         case PUSHM:  rc = exec_pushm (cpu, args, arg_count); break;
         case POPM:   rc = exec_popm  (cpu, args, arg_count); break;
 
+        case DUMP:   rc = exec_dump  (cpu, args, arg_count); break;
+
         default: break;
     }
 
@@ -212,10 +214,10 @@ static err_t exec_loop(cpu_t* cpu)
             break;
         }
 
+        size_t pc_before = cpu->pc;
+
         unsigned char opcode_stack      = (unsigned char)cpu->code[cpu->pc++];
         unsigned char encode_stackd_arg = (unsigned char)cpu->code[cpu->pc++];
-
-        log_printf(DEBUG, "exec: pc=%zu opcode_stack=%u args=%u", cpu->pc - 2, opcode_stack, encode_stackd_arg);
 
         instruction_set instruction = (instruction_set)opcode_stack;
         const instruction_t* meta   = instruction_get(instruction);
@@ -258,15 +260,9 @@ static err_t exec_loop(cpu_t* cpu)
             args[arg_idx] = (long)stored;
         }
 
-        exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
+        cpu_dump_step(cpu, pc_before, instruction, args, encode_stackd_arg, DEBUG);
 
-        if (exec_rc == OK)
-        {
-            if (instruction == CALL || instruction == RET)
-            {
-                cpu_dump_state(cpu, DEBUG);
-            }
-        }
+        exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
 
         if (exec_rc != OK) break;
     }

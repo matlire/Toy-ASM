@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "../../dumper/dump.h"
 #include "../executor_types.h"
 
 typedef err_t (*instruction_executor_fn)(cpu_t* cpu,
@@ -32,6 +33,8 @@ err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count);
 
 err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count);
+
+err_t exec_dump  (cpu_t* cpu, const long* args, size_t arg_count);
 
 static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {
