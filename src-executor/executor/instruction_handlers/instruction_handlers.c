@@ -212,8 +212,32 @@ err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count)
     err_t rc  = STACK_POP(cpu->ret_stack, arg1);
     if (rc != OK) return rc;
 
-    cpu->pc  = arg1;
+    cpu->pc = arg1;
 
     return rc;
 
+}
+
+err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    size_t reg_index = 0;
+    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+
+    long addr = cpu->x[reg_index].value.value;
+    if (addr >= RAM_SIZE) return ERR_BAD_ARG;
+    long value = 0;
+    err_t rc = STACK_POP(cpu->code_stack, value);
+    cpu->ram[addr] = value;
+    return rc;
+}
+
+err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    size_t reg_index = 0;
+    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+
+    long addr = cpu->x[reg_index].value.value;
+    if (addr >= RAM_SIZE) return ERR_BAD_ARG;
+    long value = cpu->ram[addr];
+    return STACK_PUSH(cpu->code_stack, value);
 }

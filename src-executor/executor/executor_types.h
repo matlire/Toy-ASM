@@ -14,6 +14,7 @@ typedef long reg_t;
 
 #define CPU_REGISTER_SIZE (sizeof(reg_t))
 #define CPU_REGISTER_COUNT 8
+#define RAM_SIZE 128
 
 typedef union
 {
@@ -35,6 +36,8 @@ typedef struct
     size_t         code_size;
     size_t         pc;
     cpu_register_t x[CPU_REGISTER_COUNT];
+
+    long           ram[RAM_SIZE];
 
     instruction_set_version_t binary_version;
 } cpu_t;

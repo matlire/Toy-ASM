@@ -216,6 +216,57 @@ static err_t parse_argument(asm_t* as,
 
         endptr = (char*)(name_start + name_len);
     }
+    else if (*token == '[')
+    {
+        token++;
+        while (*token && isspace((unsigned char)*token)) token++;
+
+        if (!CHECK(ERROR, *token != '\0',
+                   "parse_argument: unexpected end inside brackets"))
+        {
+            printf("PARSE_ARGUMENT: UNEXPECTED END INSIDE BRACKETS!\n");
+            return ERR_BAD_ARG;
+        }
+
+        const char* inner = token;
+        long inner_value  = 0;
+        char* inner_end   = NULL;
+
+        if ((*inner == 'x' || *inner == 'X') && isdigit((unsigned char)inner[1]))
+        {
+            inner_value = strtol(inner + 1, &inner_end, 10);
+
+            if (!CHECK(ERROR, inner + 1 != inner_end,
+                       "parse_argument: invalid register '%s'", inner))
+            {
+                printf("PARSE_ARGUMENT: INVALID REGISTER!\n");
+                return ERR_BAD_ARG;
+            }
+        }
+        else
+        {
+            inner_value = strtol(inner, &inner_end, 10);
+
+            if (!CHECK(ERROR, inner != inner_end,
+                       "parse_argument: invalid memory literal '%s'", inner))
+            {
+                printf("PARSE_ARGUMENT: INVALID MEMORY LITERAL!\n");
+                return ERR_BAD_ARG;
+            }
+        }
+
+        while (*inner_end && isspace((unsigned char)*inner_end)) inner_end++;
+
+        if (!CHECK(ERROR, *inner_end == ']',
+                   "parse_argument: missing closing bracket"))
+        {
+            printf("PARSE_ARGUMENT: MISSING CLOSING BRACKET!\n");
+            return ERR_BAD_ARG;
+        }
+
+        endptr = inner_end + 1;
+        value  = inner_value;
+    }
     else
     {
         value = strtol(token, &endptr, 10);
@@ -250,12 +301,14 @@ static err_t encode_instruction(asm_t* as,
 
     char mnemonic[MAX_INSTRUCTION_LEN] = { 0 };
     size_t mn_len = 0;
-    while (cursor[mn_len] && !isspace((unsigned char)cursor[mn_len]) && mn_len < MAX_INSTRUCTION_LEN - 1)
+    while (cursor[mn_len] && !isspace((unsigned char)cursor[mn_len]) &&
+           cursor[mn_len] != '[' && mn_len < MAX_INSTRUCTION_LEN - 1)
     {
         mnemonic[mn_len] = cursor[mn_len];
         mn_len++;
     }
     cursor += mn_len;
+    mnemonic[mn_len] = '\0';
 
     if (!CHECK(ERROR,
                !(mn_len == MAX_INSTRUCTION_LEN - 1 &&

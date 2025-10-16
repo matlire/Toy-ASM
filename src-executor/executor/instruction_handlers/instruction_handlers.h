@@ -30,6 +30,9 @@ err_t exec_jmp   (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_call  (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count);
 
+err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count);
+
 static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {
     if (!cpu || !lhs || !rhs) return ERR_BAD_ARG;

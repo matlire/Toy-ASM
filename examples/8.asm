@@ -1,0 +1,8 @@
+IN
+PUSH 1
+POPR x0
+PUSHM [x0]
+POPM [x0]
+OUT
+HLT
+

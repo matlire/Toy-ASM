@@ -28,6 +28,11 @@ err_t cpu_init(cpu_t* cpu)
         cpu->x[i].value.value = 0;
     }
 
+    for (size_t i = 0; i < RAM_SIZE; i++)
+    {
+        cpu->ram[i] = 0;
+    }
+
     STACK_INIT(cpu_code_stack, long);
     if (!CHECK(ERROR, stack_init_rc_cpu_code_stack == OK,
                "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_code_stack))
@@ -179,6 +184,9 @@ static err_t switcher(cpu_t* cpu,
 
         case CALL:   rc = exec_call  (cpu, args, arg_count); break;
         case RET:    rc = exec_ret   (cpu, args, arg_count); break;
+
+        case PUSHM:  rc = exec_pushm (cpu, args, arg_count); break;
+        case POPM:   rc = exec_popm  (cpu, args, arg_count); break;
 
         default: break;
     }

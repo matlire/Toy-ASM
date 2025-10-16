@@ -165,7 +165,7 @@ void cpu_dump_state(const cpu_t* cpu, logging_level level)
     log_printf(level, "=== CPU STATE ===");
     cpu_dump_registers(cpu, level);
     cpu_dump_stack(cpu, level);
-    cpu_dump_code_window(cpu, cpu->pc, 64, level);
+    cpu_dump_code_window(cpu, cpu->pc, DUMP_CODE_WINDOW_SIZE, level);
     log_printf(level, "=================");
 }
 

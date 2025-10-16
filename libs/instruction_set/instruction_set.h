@@ -58,9 +58,11 @@ typedef struct
     X(JAE,    "JAE",    1,  20)    \
     X(JE,     "JE",     1,  21)    \
     X(JNE,    "JNE",    1,  22)    \
-    X(PUSHR,  "PUSHR",  1,  33)    \
                                    \
-    X(POPR,   "POPR",   1,  34) 
+    X(PUSHR,  "PUSHR",  1,  33)    \
+    X(POPR,   "POPR",   1,  34)    \
+    X(PUSHM,  "PUSHM",  1,  35)    \
+    X(POPM,   "POPM",   1,  36)    \
 
 typedef enum
 {
