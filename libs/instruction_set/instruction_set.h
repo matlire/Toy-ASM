@@ -10,7 +10,7 @@
 #define MAX_INSTRUCTION_ARGS 4
 
 #define INSTRUCTION_SET_VERSION_MAJOR 0U
-#define INSTRUCTION_SET_VERSION_MINOR 6U
+#define INSTRUCTION_SET_VERSION_MINOR 7U
 
 #define INSTRUCTION_BINARY_MAGIC_LEN  4U
 
@@ -43,6 +43,7 @@ typedef struct
     X(IN,     "IN",     0,   6)    \
     X(CALL,   "CALL",   1,   7)    \
     X(RET,    "RET",    0,   8)    \
+    X(DRAW,   "DRAW",   0,   9)    \
                                    \
     X(ADD,    "ADD",    0,  10)    \
     X(SUB,    "SUB",    0,  11)    \
@@ -65,6 +66,8 @@ typedef struct
     X(POPR,   "POPR",   1,  34)    \
     X(PUSHM,  "PUSHM",  1,  35)    \
     X(POPM,   "POPM",   1,  36)    \
+    X(PUSHVM, "PUSHVM", 1,  37)    \
+    X(POPVM,  "POPVM",  1,  38)
 
 typedef enum
 {

@@ -1,2 +1,2 @@
-./dist/compiler.out --infile examples/7.asm --outfile examples/7.bin
+./dist/compiler.out --infile examples/vram-test.asm --outfile examples/vram-test.bin
 

@@ -14,7 +14,12 @@ typedef long reg_t;
 
 #define CPU_REGISTER_SIZE (sizeof(reg_t))
 #define CPU_REGISTER_COUNT 8
-#define RAM_SIZE 128
+
+#define RAM_SIZE  128
+
+#define SCREEN_WIDTH  64
+#define SCREEN_HEIGHT 16
+#define VRAM_SIZE     SCREEN_WIDTH * SCREEN_HEIGHT
 
 typedef union
 {
@@ -38,6 +43,7 @@ typedef struct
     cpu_register_t x[CPU_REGISTER_COUNT];
 
     long           ram[RAM_SIZE];
+    char           vram[VRAM_SIZE];
 
     instruction_set_version_t binary_version;
 } cpu_t;

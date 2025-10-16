@@ -2,7 +2,9 @@ IN
 PUSH 1
 POPR x0
 PUSHM [x0]
+DUMP
 POPM [x0]
+DUMP
 OUT
 HLT
 

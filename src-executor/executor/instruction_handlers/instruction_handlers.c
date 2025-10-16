@@ -223,10 +223,10 @@ err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count)
     size_t reg_index = 0;
     if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
 
-    long addr = cpu->x[reg_index].value.value;
-    if (addr >= RAM_SIZE) return ERR_BAD_ARG;
+    long addr  = cpu->x[reg_index].value.value;
+    if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
     long value = 0;
-    err_t rc = STACK_POP(cpu->code_stack, value);
+    err_t rc   = STACK_POP(cpu->code_stack, value);
     cpu->ram[addr] = value;
     return rc;
 }
@@ -236,10 +236,68 @@ err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count)
     size_t reg_index = 0;
     if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
 
-    long addr = cpu->x[reg_index].value.value;
-    if (addr >= RAM_SIZE) return ERR_BAD_ARG;
+    long addr  = cpu->x[reg_index].value.value;
+    if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
     long value = cpu->ram[addr];
     return STACK_PUSH(cpu->code_stack, value);
+}
+
+err_t exec_pushvm (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    size_t reg_index = 0;
+    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+
+    long addr = cpu->x[reg_index].value.value;
+    if (addr >= VRAM_SIZE) return ERR_BAD_ARG;
+    long value = cpu->vram[addr];
+    return STACK_PUSH(cpu->code_stack, value);
+}
+
+err_t exec_popvm  (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    size_t reg_index = 0;
+    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+
+    long addr  = cpu->x[reg_index].value.value;
+    if (addr  >= VRAM_SIZE) return ERR_BAD_ARG;
+    long value = 0;
+    err_t rc   = STACK_POP(cpu->code_stack, value);
+    cpu->vram[addr] = value;
+    return rc;
+}
+
+err_t exec_draw  (cpu_t* cpu, const long* args, size_t arg_count)
+{
+    (void)args;
+    (void)arg_count;
+
+    clear();
+
+    for (size_t row = 0; row < SCREEN_HEIGHT; ++row)
+    {
+        char   line[SCREEN_WIDTH] = { 0 };
+        size_t len                = 0;
+
+        for (size_t col = 0; col < SCREEN_WIDTH; ++col)
+        {
+            const size_t idx = row * SCREEN_WIDTH + col;
+            const char    ch = cpu->vram[idx];
+
+            if (len + 2 >= sizeof(line)) break;
+
+            line[len++] = ch;
+            line[len++] = ' ';
+        }
+
+        if (len > 0)
+            line[len - 1] = '\0';
+        else
+            line[0] = '\0';
+
+        printf("%s\n", line);
+    }
+
+    return OK;
 }
 
 err_t exec_dump  (cpu_t* cpu, const long* args, size_t arg_count)

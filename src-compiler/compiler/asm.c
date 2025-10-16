@@ -165,6 +165,7 @@ static err_t parse_argument(asm_t* as,
     long  value  = 0;
     char* endptr = NULL;
 
+    // Replace to switch
     if ((*token == 'x' || *token == 'X') && isdigit((unsigned char)token[1]))
     {
         value = strtol(token + 1, &endptr, 10);
@@ -216,8 +217,11 @@ static err_t parse_argument(asm_t* as,
 
         endptr = (char*)(name_start + name_len);
     }
-    else if (*token == '[')
+    else if (*token == '[' || *token == '\'')
     {
+        const char div     = *token;
+        const char closing = (div == '[') ? ']' : '\'';
+
         token++;
         while (*token && isspace((unsigned char)*token)) token++;
 
@@ -243,7 +247,19 @@ static err_t parse_argument(asm_t* as,
                 return ERR_BAD_ARG;
             }
         }
-        else
+        else if (div == '\'')
+        {
+            inner_value = (long)(*inner);
+
+            if (!CHECK(ERROR, inner_value < 255 && inner_value >= 0,
+                       "parse_argument: invalid symbol '%s'", inner))
+            {
+                printf("PARSE_ARGUMENT: INVALID SYMBOL!\n");
+                return ERR_BAD_ARG;
+            }
+
+            inner_end = (char*)(inner + 1);
+        } else
         {
             inner_value = strtol(inner, &inner_end, 10);
 
@@ -257,10 +273,10 @@ static err_t parse_argument(asm_t* as,
 
         while (*inner_end && isspace((unsigned char)*inner_end)) inner_end++;
 
-        if (!CHECK(ERROR, *inner_end == ']',
-                   "parse_argument: missing closing bracket"))
+        if (!CHECK(ERROR, *inner_end == closing,
+                   "parse_argument: missing closing symbol"))
         {
-            printf("PARSE_ARGUMENT: MISSING CLOSING BRACKET!\n");
+            printf("PARSE_ARGUMENT: MISSING CLOSING SYMBOL!\n");
             return ERR_BAD_ARG;
         }
 

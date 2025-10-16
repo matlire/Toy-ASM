@@ -29,9 +29,10 @@ err_t cpu_init(cpu_t* cpu)
     }
 
     for (size_t i = 0; i < RAM_SIZE; i++)
-    {
         cpu->ram[i] = 0;
-    }
+
+    for (size_t i = 0; i < VRAM_SIZE; i++)
+        cpu->vram[i] = 0;
 
     STACK_INIT(cpu_code_stack, long);
     if (!CHECK(ERROR, stack_init_rc_cpu_code_stack == OK,
@@ -155,6 +156,7 @@ static err_t switcher(cpu_t* cpu,
         return ERR_BAD_ARG;
 
     err_t rc = OK;
+    // Rewrite
     switch (instruction)
     {
         case HLT:    rc = exec_hlt   (cpu, args, arg_count); break;
@@ -187,8 +189,11 @@ static err_t switcher(cpu_t* cpu,
 
         case PUSHM:  rc = exec_pushm (cpu, args, arg_count); break;
         case POPM:   rc = exec_popm  (cpu, args, arg_count); break;
+        case PUSHVM: rc = exec_pushvm(cpu, args, arg_count); break;
+        case POPVM:  rc = exec_popvm (cpu, args, arg_count); break;
 
         case DUMP:   rc = exec_dump  (cpu, args, arg_count); break;
+        case DRAW:   rc = exec_draw  (cpu, args, arg_count); break;
 
         default: break;
     }
@@ -263,6 +268,11 @@ static err_t exec_loop(cpu_t* cpu)
         cpu_dump_step(cpu, pc_before, instruction, args, encode_stackd_arg, DEBUG);
 
         exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
+
+        if (exec_rc == OK && (instruction == CALL || instruction == RET))
+        {
+            cpu_dump_state(cpu, DEBUG);
+        }
 
         if (exec_rc != OK) break;
     }

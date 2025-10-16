@@ -33,8 +33,13 @@ err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count);
 
 err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_pushvm(cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_popvm (cpu_t* cpu, const long* args, size_t arg_count);
 
 err_t exec_dump  (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_draw  (cpu_t* cpu, const long* args, size_t arg_count);
+
+#define clear() printf("\033[H\033[J")
 
 static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {

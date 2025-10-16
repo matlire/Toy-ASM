@@ -1,5 +1,7 @@
 #include "dump.h"
 
+#include "../executor/executor_types.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -11,7 +13,7 @@ static const char* safe_instruction_name(instruction_set opcode)
     return meta && meta->name ? meta->name : "<unknown>";
 }
 
-void cpu_dump_registers(const cpu_t* cpu, logging_level level)
+void cpu_dump_registers(const cpu_t * const cpu, logging_level level)
 {
     if (!cpu)
     {
@@ -63,7 +65,7 @@ static void dump_single_stack(logging_level level,
     STACK_DUMP(level, stack, OK, label);
 }
 
-void cpu_dump_stack(const cpu_t* cpu, logging_level level)
+void cpu_dump_stack(const cpu_t * const cpu, logging_level level)
 {
     if (!cpu)
     {
@@ -73,6 +75,70 @@ void cpu_dump_stack(const cpu_t* cpu, logging_level level)
 
     dump_single_stack(level, "Code stack", cpu->code_stack);
     dump_single_stack(level, "Return stack", cpu->ret_stack);
+}
+
+void cpu_dump_ram(const cpu_t * const cpu, logging_level level)
+{
+    if (!cpu)
+    {
+        log_printf(level, "cpu_dump_ram: cpu pointer is NULL");
+        return;
+    }
+
+    log_printf(level, "RAM dump (size=%zu):", (size_t)RAM_SIZE);
+
+    const int step = 8;
+
+    for (size_t base = 0; base < RAM_SIZE; base += step)
+    {
+        char   line[RAM_SIZE] = { 0 };
+        size_t len            = (size_t)snprintf(line, sizeof(line), "  0x%04zx:", base);
+
+        for (size_t offset = 0; offset < step && (base + offset) < RAM_SIZE; ++offset)
+        {
+            if (len < sizeof(line))
+            {
+                len += (size_t)snprintf(line + len,
+                                        sizeof(line) - len,
+                                        " %4ld",
+                                        cpu->ram[base + offset]);
+            }
+        }
+
+        log_printf(level, "%s", line);
+    }
+}
+
+void cpu_dump_vram(const cpu_t * const cpu, logging_level level)
+{
+    if (!cpu)
+    {
+        log_printf(level, "cpu_dump_vram: cpu pointer is NULL");
+        return;
+    }
+
+    log_printf(level, "VRAM dump (size=%zu):", (size_t)VRAM_SIZE);
+
+    const int step = 32;
+
+    for (size_t base = 0; base < VRAM_SIZE; base += step)
+    {
+        char   line[RAM_SIZE] = { 0 };
+        size_t len            = (size_t)snprintf(line, sizeof(line), "  0x%04zx:", base);
+
+        for (size_t offset = 0; offset < step && (base + offset) < VRAM_SIZE; ++offset)
+        {
+            if (len < sizeof(line))
+            {
+                len += (size_t)snprintf(line + len,
+                                        sizeof(line) - len,
+                                        " %c",
+                                        cpu->vram[base + offset]);
+            }
+        }
+
+        log_printf(level, "%s", line);
+    }
 }
 
 static void dump_code_bytes(const unsigned char* code,
@@ -136,10 +202,10 @@ static void dump_code_bytes(const unsigned char* code,
     }
 }
 
-void cpu_dump_code_window(const cpu_t* cpu,
-                          size_t start_pc,
-                          size_t max_bytes,
-                          logging_level level)
+void cpu_dump_code_window(const cpu_t * const cpu,
+                          size_t              start_pc,
+                          size_t              max_bytes,
+                          logging_level       level)
 {
     if (!cpu)
     {
@@ -154,7 +220,7 @@ void cpu_dump_code_window(const cpu_t* cpu,
                     level);
 }
 
-void cpu_dump_state(const cpu_t* cpu, logging_level level)
+void cpu_dump_state(const cpu_t * const cpu, logging_level level)
 {
     if (!cpu)
     {
@@ -162,21 +228,21 @@ void cpu_dump_state(const cpu_t* cpu, logging_level level)
         return;
     }
 
-    log_printf(level, "");
-    log_printf(level, "");
     log_printf(level, "=== CPU STATE ===");
     cpu_dump_registers(cpu, level);
     cpu_dump_stack(cpu, level);
+    cpu_dump_ram(cpu, level);
+    cpu_dump_vram(cpu, level);
     cpu_dump_code_window(cpu, cpu->pc, DUMP_CODE_WINDOW_SIZE, level);
     log_printf(level, "=================");
 }
 
-void cpu_dump_step(const cpu_t*    cpu,
-                   size_t          pc_before,
-                   instruction_set opcode,
-                   const long*     args,
-                   size_t          arg_count,
-                   logging_level   level)
+void cpu_dump_step(const cpu_t * const cpu,
+                   size_t              pc_before,
+                   instruction_set     opcode,
+                   const long*         args,
+                   size_t              arg_count,
+                   logging_level       level)
 {
     if (!cpu)
     {
@@ -203,9 +269,9 @@ void cpu_dump_step(const cpu_t*    cpu,
     }
 }
 
-void cpu_dump_final_state(const cpu_t*  cpu,
-                          err_t         rc,
-                          logging_level level)
+void cpu_dump_final_state(const cpu_t * const cpu,
+                          err_t               rc,
+                          logging_level       level)
 {
     const char* status = err_str(rc);
     log_printf(level,
@@ -215,8 +281,8 @@ void cpu_dump_final_state(const cpu_t*  cpu,
     cpu_dump_state(cpu, level);
 }
 
-void cpu_dump_binary_header(const instruction_binary_header_t* header,
-                            logging_level level)
+void cpu_dump_binary_header(const instruction_binary_header_t * const header,
+                            logging_level                         level)
 {
     if (!header)
     {
