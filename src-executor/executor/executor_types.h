@@ -29,7 +29,8 @@ typedef struct
 
 typedef struct
 {
-    stack_id       stack;
+    stack_id       code_stack;
+    stack_id       ret_stack;
     char*          code;
     size_t         code_size;
     size_t         pc;

@@ -1,5 +1,9 @@
 #include "executor.h"
 
+#include <stdio.h>
+
+#include "../dumper/dump.h"
+
 DEFINE_STACK_PRINTER_SIMPLE(long, "%ld")
 
 err_t cpu_init(cpu_t* cpu)
@@ -8,26 +12,35 @@ err_t cpu_init(cpu_t* cpu)
         return ERR_BAD_ARG;
 
     memset(cpu, 0, sizeof(*cpu));
-    cpu->stack          = (size_t)-1;
-    cpu->binary_version = instruction_set_version();
-    cpu->code           = NULL;
-    cpu->code_size      = 0;
-    cpu->pc             = 0;
+    cpu->code_stack           = (size_t)-1;
+    cpu->ret_stack            = (size_t)-1;
+    cpu->binary_version       = instruction_set_version();
+    cpu->code                 = 0;
+    cpu->code_size            = 0;
+    cpu->pc                   = 0;
+
+    static char register_names[CPU_REGISTER_COUNT][8] = { { 0 } };
 
     for (size_t i = 0; i < CPU_REGISTER_COUNT; i++)
     {
-        static char register_name[8] = { 0 };
-        sprintf(register_name, "x%ld", i);
-        cpu->x[i].name        = register_name;
+        snprintf(register_names[i], sizeof(register_names[i]), "x%zu", i);
+        cpu->x[i].name        = register_names[i];
         cpu->x[i].value.value = 0;
     }
 
-    STACK_INIT(cpu_stack, long);
-    if (!CHECK(ERROR, stack_init_rc_cpu_stack == OK,
-               "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_stack))
-        return stack_init_rc_cpu_stack;
+    STACK_INIT(cpu_code_stack, long);
+    if (!CHECK(ERROR, stack_init_rc_cpu_code_stack == OK,
+               "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_code_stack))
+        return stack_init_rc_cpu_code_stack;
 
-    cpu->stack = cpu_stack;
+    STACK_INIT(cpu_ret_stack, long);
+    if (!CHECK(ERROR, stack_init_rc_cpu_ret_stack == OK,
+               "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_ret_stack))
+        return stack_init_rc_cpu_ret_stack;
+
+
+    cpu->code_stack = cpu_code_stack;
+    cpu->ret_stack  = cpu_ret_stack;
 
     return OK;
 }
@@ -37,10 +50,16 @@ void cpu_destroy(cpu_t* cpu)
     if (!CHECK(ERROR, cpu != NULL, "cpu_destroy: cpu pointer is NULL"))
         return;
 
-    if (cpu->stack != (size_t)-1)
+    if (cpu->code_stack != (size_t)-1)
     {
-        stack_dtor(cpu->stack);
-        cpu->stack = (size_t)-1;
+        stack_dtor(cpu->code_stack);
+        cpu->code_stack = (size_t)-1;
+    }
+
+    if (cpu->ret_stack != (size_t)-1)
+    {
+        stack_dtor(cpu->ret_stack);
+        cpu->ret_stack = (size_t)-1;
     }
 
     cpu->code      = NULL;
@@ -71,10 +90,10 @@ err_t load_op_data (operational_data_t * const op_data, const char* const IN_FIL
 static err_t parse_binary_header(char** cursor,
                                  size_t* remaining,
                                  instruction_set_version_t* binary_version,
-                                 size_t* code_size_out)
+                                 size_t* code_stack_size_out)
 {
     if (!CHECK(ERROR,
-               cursor && *cursor && remaining && binary_version && code_size_out,
+               cursor && *cursor && remaining && binary_version && code_stack_size_out,
                "parse_binary_header: invalid arguments"))
         return ERR_BAD_ARG;
 
@@ -108,15 +127,15 @@ static err_t parse_binary_header(char** cursor,
     *remaining -= INSTRUCTION_BINARY_HEADER_SIZE;
 
     size_t available = *remaining;
-    size_t code_size = (size_t)header.code_size;
+    size_t code_stack_size = (size_t)header.code_size;
 
-    if (!CHECK(ERROR, code_size <= available,
-               "parse_binary_header: code size %zu exceeds available %zu",
-               code_size, available))
+    if (!CHECK(ERROR, code_stack_size <= available,
+               "parse_binary_header: code_stack size %zu exceeds available %zu",
+               code_stack_size, available))
         return ERR_BAD_ARG;
 
-    *remaining     = code_size;
-    *code_size_out = code_size;
+    *remaining     = code_stack_size;
+    *code_stack_size_out = code_stack_size;
 
     return OK;
 }
@@ -158,6 +177,9 @@ static err_t switcher(cpu_t* cpu,
         case JE:     rc = exec_je    (cpu, args, arg_count); break;
         case JNE:    rc = exec_jne   (cpu, args, arg_count); break;
 
+        case CALL:   rc = exec_call  (cpu, args, arg_count); break;
+        case RET:    rc = exec_ret   (cpu, args, arg_count); break;
+
         default: break;
     }
 
@@ -169,7 +191,7 @@ static err_t exec_loop(cpu_t* cpu)
     if (!CHECK(ERROR, cpu != NULL, "exec_loop: cpu pointer is NULL"))
         return ERR_BAD_ARG;
 
-    if (!CHECK(ERROR, cpu->code != NULL, "exec_loop: code buffer is NULL"))
+    if (!CHECK(ERROR, cpu->code != NULL, "exec_loop: code_stack buffer is NULL"))
         return ERR_BAD_ARG;
 
     err_t exec_rc = OK;
@@ -182,45 +204,45 @@ static err_t exec_loop(cpu_t* cpu)
             break;
         }
 
-        unsigned char opcode      = (unsigned char)cpu->code[cpu->pc++];
-        unsigned char encoded_arg = (unsigned char)cpu->code[cpu->pc++];
+        unsigned char opcode_stack      = (unsigned char)cpu->code[cpu->pc++];
+        unsigned char encode_stackd_arg = (unsigned char)cpu->code[cpu->pc++];
 
-        log_printf(DEBUG, "exec: pc=%zu opcode=%u args=%u", cpu->pc - 2, opcode, encoded_arg);
+        log_printf(DEBUG, "exec: pc=%zu opcode_stack=%u args=%u", cpu->pc - 2, opcode_stack, encode_stackd_arg);
 
-        instruction_set instruction = (instruction_set)opcode;
+        instruction_set instruction = (instruction_set)opcode_stack;
         const instruction_t* meta   = instruction_get(instruction);
 
         if (!CHECK(ERROR, meta != NULL,
-                   "exec_loop: metadata missing for opcode %u", opcode))
+                   "exec_loop: metadata missing for opcode_stack %u", opcode_stack))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
-        if (!CHECK(ERROR, encoded_arg <= MAX_INSTRUCTION_ARGS,
-                   "exec_loop: encoded arg count %u exceeds max", encoded_arg))
+        if (!CHECK(ERROR, encode_stackd_arg <= MAX_INSTRUCTION_ARGS,
+                   "exec_loop: encode_stackd arg count %u exceeds max", encode_stackd_arg))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
-        if (!CHECK(ERROR, meta->expected_args == encoded_arg,
-                   "exec_loop: arg count mismatch for opcode %u", opcode))
+        if (!CHECK(ERROR, meta->expected_args == encode_stackd_arg,
+                   "exec_loop: arg count mismatch for opcode_stack %u", opcode_stack))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
-        size_t required = (size_t)encoded_arg * sizeof(int32_t);
+        size_t required = (size_t)encode_stackd_arg * sizeof(int32_t);
         if (!CHECK(ERROR, cpu->pc + required <= cpu->code_size,
-                   "exec_loop: truncated arguments for opcode %u", opcode))
+                   "exec_loop: truncated arguments for opcode_stack %u", opcode_stack))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
         long args[MAX_INSTRUCTION_ARGS] = { 0 };
-        for (size_t arg_idx = 0; arg_idx < encoded_arg; ++arg_idx)
+        for (size_t arg_idx = 0; arg_idx < encode_stackd_arg; ++arg_idx)
         {
             int32_t stored = 0;
             memcpy(&stored, cpu->code + cpu->pc, sizeof(stored));
@@ -228,7 +250,15 @@ static err_t exec_loop(cpu_t* cpu)
             args[arg_idx] = (long)stored;
         }
 
-        exec_rc = switcher(cpu, instruction, args, encoded_arg);
+        exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
+
+        if (exec_rc == OK)
+        {
+            if (instruction == CALL || instruction == RET)
+            {
+                cpu_dump_state(cpu, DEBUG);
+            }
+        }
 
         if (exec_rc != OK) break;
     }
@@ -263,6 +293,14 @@ err_t load_program(operational_data_t * const op_data, cpu_t* cpu)
 
     char*  cursor    = op_data->buffer;
     size_t remaining = read_bytes;
+    instruction_binary_header_t header_snapshot = { 0 };
+    int header_captured = 0;
+
+    if (remaining >= INSTRUCTION_BINARY_HEADER_SIZE)
+    {
+        memcpy(&header_snapshot, cursor, INSTRUCTION_BINARY_HEADER_SIZE);
+        header_captured = 1;
+    }
     instruction_set_version_t binary_version = { 0 };
 
     size_t code_size = 0;
@@ -273,6 +311,9 @@ err_t load_program(operational_data_t * const op_data, cpu_t* cpu)
         op_data->buffer = NULL;
         return header_rc;
     }
+
+    if (header_captured)
+        cpu_dump_binary_header(&header_snapshot, DEBUG);
 
     cpu->binary_version = binary_version;
     cpu->code           = cursor;

@@ -1,5 +1,7 @@
 #include "compiler.h"
 
+#include "../dumper/dump.h"
+
 err_t load_op_data(operational_data_t * const op_data,
                    const char * const IN_FILE,
                    const char * const OUT_FILE)
@@ -143,6 +145,8 @@ size_t update_header(operational_data_t * const op_data,
             printf("UPDATE_HEADER: FLUSH FAILED!\n");
             break;
         }
+
+        asm_dump_header(header, DEBUG);
 
         rc = OK;
     end;

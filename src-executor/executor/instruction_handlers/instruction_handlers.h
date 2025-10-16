@@ -25,18 +25,21 @@ err_t exec_popr  (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_in    (cpu_t* cpu, const long* args, size_t arg_count);
 err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count);
 
-err_t exec_jmp (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_jmp   (cpu_t* cpu, const long* args, size_t arg_count);
+
+err_t exec_call  (cpu_t* cpu, const long* args, size_t arg_count);
+err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count);
 
 static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {
     if (!cpu || !lhs || !rhs) return ERR_BAD_ARG;
 
     long rhs_val = 0;
-    err_t rc     = STACK_POP(cpu->stack, rhs_val);
+    err_t rc     = STACK_POP(cpu->code_stack, rhs_val);
     if (rc != OK) return rc;
 
     long lhs_val = 0;
-    rc           = STACK_POP(cpu->stack, lhs_val);
+    rc           = STACK_POP(cpu->code_stack, lhs_val);
     if (rc != OK) return rc;
 
     *lhs = lhs_val;

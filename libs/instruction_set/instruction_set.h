@@ -10,7 +10,7 @@
 #define MAX_INSTRUCTION_ARGS 4
 
 #define INSTRUCTION_SET_VERSION_MAJOR 0U
-#define INSTRUCTION_SET_VERSION_MINOR 5U
+#define INSTRUCTION_SET_VERSION_MINOR 6U
 
 #define INSTRUCTION_BINARY_MAGIC_LEN  4U
 
@@ -40,8 +40,10 @@ typedef struct
     X(POP,    "POP",    0,   3)    \
     X(OUT,    "OUT",    0,   4)    \
     X(TOPOUT, "TOPOUT", 0,   5)    \
-                                   \
     X(IN,     "IN",     0,   6)    \
+    X(CALL,   "CALL",   1,   7)    \
+    X(RET,    "RET",    0,   8)    \
+                                   \
     X(ADD,    "ADD",    0,  10)    \
     X(SUB,    "SUB",    0,  11)    \
     X(MUL,    "MUL",    0,  12)    \

@@ -1,10 +1,16 @@
 #include "compiler.h"
 
+#include "../dumper/dump.h"
+
 #include <stdlib.h>
 
 static label_parse_status_t label_parse_token(const char*    token,
                                               label_token_t* out)
 {
+    if (!CHECK(ERROR, out != NULL, 
+               "label_parse_token: out is NULL"))
+        return LABEL_PARSE_ERR_INVALID;
+    
     if (!token || token[0] != ':') return LABEL_PARSE_ERR_BAD_PREFIX;
 
     const char* name_start = token + 1;
@@ -16,12 +22,8 @@ static label_parse_status_t label_parse_token(const char*    token,
 
     if (cursor == name_start) return LABEL_PARSE_ERR_INVALID;
 
-    if (out)
-    {
-        out->name       = name_start;
-        out->length     = (size_t)(cursor - name_start);
-        out->after_name = cursor;
-    }
+    out->name       = name_start;
+    out->length     = (size_t)(cursor - name_start);
 
     return LABEL_PARSE_OK;
 }
@@ -117,7 +119,7 @@ static err_t process_label_definition(asm_t* as,
         return ERR_BAD_ARG;
     }
 
-    const char* tail = label.after_name;
+    const char* tail = label.name + label.length;
 
     while (*tail && isspace((unsigned char)*tail)) tail++;
     if (!CHECK(ERROR, !*tail || *tail == ';',
@@ -176,7 +178,7 @@ static err_t parse_argument(asm_t* as,
     }
     else if (*token == ':')
     {
-        label_token_t label = { 0 };
+        label_token_t        label    = { 0 };
         label_parse_status_t parse_rc = label_parse_token(token, &label);
 
         if (!CHECK(ERROR, parse_rc == LABEL_PARSE_OK,
@@ -193,7 +195,6 @@ static err_t parse_argument(asm_t* as,
 
         const char* name_start = label.name;
         size_t name_len        = label.length;
-        const char* name_end   = label.after_name;
 
         if (iter == 0)
         {
@@ -213,7 +214,7 @@ static err_t parse_argument(asm_t* as,
             value = (long)found->offset;
         }
 
-        endptr = (char*)name_end;
+        endptr = (char*)(name_start + name_len);
     }
     else
     {
@@ -326,6 +327,7 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
 
     char* cursor  = as->source;
     size_t offset = 0;
+    size_t line_no = 1;
 
     while (*cursor)
     {
@@ -336,6 +338,7 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
         while (*cursor && *cursor != '\n' && *cursor != '\r') cursor++;
         char saved = *cursor;
         *cursor = '\0';
+        size_t current_line = line_no++;
 
         char* trimmed = line_start;
         while (*trimmed && isspace((unsigned char)*trimmed)) trimmed++;
@@ -369,6 +372,18 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
         {
             *cursor = saved;
             return SIZE_MAX;
+        }
+
+        if (encoded_len > 0)
+        {
+            asm_dump_pass_line(as,
+                               pass,
+                               current_line,
+                               offset,
+                               trimmed,
+                               encoded,
+                               encoded_len,
+                               DEBUG);
         }
 
         offset += encoded_len;
@@ -426,6 +441,10 @@ size_t asm_first_pass(asm_t* as)
         log_printf(ERROR, "asm_first_pass: failed to parse source");
         printf("ASM_FIRST_PASS: FAILED TO PARSE SOURCE!\n");
     }
+    else
+    {
+        asm_dump_pass_summary(as, 0, result, DEBUG);
+    }
     return result;
 }
 
@@ -436,6 +455,10 @@ size_t asm_second_pass(asm_t* as, FILE* out)
     {
         log_printf(ERROR, "asm_second_pass: failed to emit program");
         printf("ASM_SECOND_PASS: FAILED TO EMIT PROGRAM!\n");
+    }
+    else
+    {
+        asm_dump_pass_summary(as, 1, result, DEBUG);
     }
     return result;
 }

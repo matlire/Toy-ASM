@@ -36,7 +36,6 @@ typedef struct
 {
     const char* name;
     size_t      length;
-    const char* after_name;
 } label_token_t;
 
 typedef struct
