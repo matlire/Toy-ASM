@@ -151,6 +151,188 @@ static err_t process_label_definition(asm_t* as,
     }
 }
 
+static err_t parse_register_arg(const char* token,
+                                long*       out_value,
+                                const char** out_end)
+{
+    if (!token) return ERR_BAD_ARG;
+
+    char* endptr = NULL;
+    long  value  = strtol(token + 1, &endptr, 10);
+
+    if (!CHECK(ERROR, token + 1 != endptr,
+               "parse_argument: invalid register '%s'", token))
+    {
+        printf("PARSE_ARGUMENT: INVALID REGISTER!\n");
+        return ERR_BAD_ARG;
+    }
+
+    if (out_end)  *out_end  = endptr;
+    if (out_value) *out_value = value;
+
+    return OK;
+}
+
+static err_t parse_label_arg(asm_t* as,
+                             const char* token,
+                             size_t      iter,
+                             long*       out_value,
+                             const char** out_end)
+{
+    label_token_t        label    = { 0 };
+    label_parse_status_t parse_rc = label_parse_token(token, &label);
+
+    if (!CHECK(ERROR, parse_rc == LABEL_PARSE_OK,
+               "parse_argument: label reference parse failed"))
+    {
+        if (parse_rc == LABEL_PARSE_ERR_EMPTY)
+            printf("PARSE_ARGUMENT: EMPTY LABEL REFERENCE!\n");
+        else if (parse_rc == LABEL_PARSE_ERR_INVALID)
+            printf("PARSE_ARGUMENT: INVALID LABEL REFERENCE!\n");
+        else
+            printf("PARSE_ARGUMENT: INVALID LABEL REFERENCE!\n");
+        return ERR_BAD_ARG;
+    }
+
+    long value = 0;
+
+    if (iter != 0)
+    {
+        asm_label_t* found = asm_find_label(as, label.name, label.length);
+
+        if (!CHECK(ERROR, found != NULL,
+                   "parse_argument: undefined label '%.*s'",
+                   (int)label.length, label.name))
+        {
+            printf("PARSE_ARGUMENT: UNDEFINED LABEL!\n");
+            return ERR_BAD_ARG;
+        }
+
+        value = (long)found->offset;
+    }
+
+    if (out_end)   *out_end   = label.name + label.length;
+    if (out_value) *out_value = value;
+
+    return OK;
+}
+
+static err_t parse_memory_arg(const char* token,
+                              long*       out_value,
+                              const char** out_end)
+{
+    if (!token) return ERR_BAD_ARG;
+
+    const char closing = ']';
+    const char* inner  = token + 1;
+
+    while (*inner && isspace((unsigned char)*inner)) inner++;
+
+    if (!CHECK(ERROR, *inner != '\0',
+               "parse_argument: unexpected end inside brackets"))
+    {
+        printf("PARSE_ARGUMENT: UNEXPECTED END INSIDE BRACKETS!\n");
+        return ERR_BAD_ARG;
+    }
+
+    long value = 0;
+    const char* inner_end = NULL;
+
+    if ((*inner == 'x' || *inner == 'X') && isdigit((unsigned char)inner[1]))
+    {
+        err_t rc = parse_register_arg(inner, &value, &inner_end);
+        if (rc != OK) return rc;
+    }
+    else
+    {
+        char* endptr = NULL;
+        value = strtol(inner, &endptr, 10);
+
+        if (!CHECK(ERROR, inner != endptr,
+                   "parse_argument: invalid memory literal '%s'", inner))
+        {
+            printf("PARSE_ARGUMENT: INVALID MEMORY LITERAL!\n");
+            return ERR_BAD_ARG;
+        }
+
+        inner_end = endptr;
+    }
+
+    while (*inner_end && isspace((unsigned char)*inner_end)) inner_end++;
+
+    if (!CHECK(ERROR, *inner_end == closing,
+               "parse_argument: missing closing symbol"))
+    {
+        printf("PARSE_ARGUMENT: MISSING CLOSING SYMBOL!\n");
+        return ERR_BAD_ARG;
+    }
+
+    if (out_end)   *out_end   = inner_end + 1;
+    if (out_value) *out_value = value;
+
+    return OK;
+}
+
+static err_t parse_char_literal_arg(const char* token,
+                                    long*       out_value,
+                                    const char** out_end)
+{
+    if (!token) return ERR_BAD_ARG;
+
+    const char* inner = token + 1;
+    if (!*inner)
+    {
+        printf("PARSE_ARGUMENT: INVALID SYMBOL!\n");
+        return ERR_BAD_ARG;
+    }
+
+    long value = (long)(unsigned char)*inner;
+
+    if (!CHECK(ERROR, value < 255 && value >= 0,
+               "parse_argument: invalid symbol '%s'", inner))
+    {
+        printf("PARSE_ARGUMENT: INVALID SYMBOL!\n");
+        return ERR_BAD_ARG;
+    }
+
+    const char* inner_end = inner + 1;
+    while (*inner_end && isspace((unsigned char)*inner_end)) inner_end++;
+
+    if (!CHECK(ERROR, *inner_end == '\'',
+               "parse_argument: missing closing symbol"))
+    {
+        printf("PARSE_ARGUMENT: MISSING CLOSING SYMBOL!\n");
+        return ERR_BAD_ARG;
+    }
+
+    if (out_end)   *out_end   = inner_end + 1;
+    if (out_value) *out_value = value;
+
+    return OK;
+}
+
+static err_t parse_numeric_literal_arg(const char* token,
+                                       long*       out_value,
+                                       const char** out_end)
+{
+    if (!token) return ERR_BAD_ARG;
+
+    char* endptr = NULL;
+    long  value  = strtol(token, &endptr, 10);
+
+    if (!CHECK(ERROR, token != endptr,
+               "parse_argument: invalid literal '%s'", token))
+    {
+        printf("PARSE_ARGUMENT: INVALID LITERAL!\n");
+        return ERR_BAD_ARG;
+    }
+
+    if (out_end)   *out_end   = endptr;
+    if (out_value) *out_value = value;
+
+    return OK;
+}
+
 static err_t parse_argument(asm_t* as,
                             const char** cursor,
                             size_t iter,
@@ -162,140 +344,38 @@ static err_t parse_argument(asm_t* as,
     if (!CHECK(ERROR, *token != '\0', "parse_argument: unexpected end of line"))
         return ERR_BAD_ARG;
 
-    long  value  = 0;
-    char* endptr = NULL;
+    long value = 0;
+    const char* endptr = NULL;
 
-    // Replace to switch
-    if ((*token == 'x' || *token == 'X') && isdigit((unsigned char)token[1]))
+    err_t rc = ERR_BAD_ARG;
+
+    switch (*token)
     {
-        value = strtol(token + 1, &endptr, 10);
+        case 'x':
+        case 'X':
+            rc = parse_register_arg(token, &value, &endptr);
+            break;
 
-        if (!CHECK(ERROR, token + 1 != endptr,
-                   "parse_argument: invalid register '%s'", token))
-        {
-            printf("PARSE_ARGUMENT: INVALID REGISTER!\n");
-            return ERR_BAD_ARG;
-        }
-    }
-    else if (*token == ':')
-    {
-        label_token_t        label    = { 0 };
-        label_parse_status_t parse_rc = label_parse_token(token, &label);
+        case ':':
+            rc = parse_label_arg(as, token, iter, &value, &endptr);
+            break;
 
-        if (!CHECK(ERROR, parse_rc == LABEL_PARSE_OK,
-                   "parse_argument: label reference parse failed"))
-        {
-            if (parse_rc == LABEL_PARSE_ERR_EMPTY)
-                printf("PARSE_ARGUMENT: EMPTY LABEL REFERENCE!\n");
-            else if (parse_rc == LABEL_PARSE_ERR_INVALID)
-                printf("PARSE_ARGUMENT: INVALID LABEL REFERENCE!\n");
-            else
-                printf("PARSE_ARGUMENT: INVALID LABEL REFERENCE!\n");
-            return ERR_BAD_ARG;
-        }
+        case '[':
+            rc = parse_memory_arg(token, &value, &endptr);
+            break;
 
-        const char* name_start = label.name;
-        size_t name_len        = label.length;
+        case '\'':
+            rc = parse_char_literal_arg(token, &value, &endptr);
+            break;
 
-        if (iter == 0)
-        {
-            value = 0;
-        }
-        else {
-            asm_label_t* found = asm_find_label(as, name_start, name_len);
-
-            if (!CHECK(ERROR, found != NULL,
-                       "parse_argument: undefined label '%.*s'",
-                       (int)name_len, name_start))
-            {
-                printf("PARSE_ARGUMENT: UNDEFINED LABEL!\n");
-                return ERR_BAD_ARG;
-            }
-
-            value = (long)found->offset;
-        }
-
-        endptr = (char*)(name_start + name_len);
-    }
-    else if (*token == '[' || *token == '\'')
-    {
-        const char div     = *token;
-        const char closing = (div == '[') ? ']' : '\'';
-
-        token++;
-        while (*token && isspace((unsigned char)*token)) token++;
-
-        if (!CHECK(ERROR, *token != '\0',
-                   "parse_argument: unexpected end inside brackets"))
-        {
-            printf("PARSE_ARGUMENT: UNEXPECTED END INSIDE BRACKETS!\n");
-            return ERR_BAD_ARG;
-        }
-
-        const char* inner = token;
-        long inner_value  = 0;
-        char* inner_end   = NULL;
-
-        if ((*inner == 'x' || *inner == 'X') && isdigit((unsigned char)inner[1]))
-        {
-            inner_value = strtol(inner + 1, &inner_end, 10);
-
-            if (!CHECK(ERROR, inner + 1 != inner_end,
-                       "parse_argument: invalid register '%s'", inner))
-            {
-                printf("PARSE_ARGUMENT: INVALID REGISTER!\n");
-                return ERR_BAD_ARG;
-            }
-        }
-        else if (div == '\'')
-        {
-            inner_value = (long)(*inner);
-
-            if (!CHECK(ERROR, inner_value < 255 && inner_value >= 0,
-                       "parse_argument: invalid symbol '%s'", inner))
-            {
-                printf("PARSE_ARGUMENT: INVALID SYMBOL!\n");
-                return ERR_BAD_ARG;
-            }
-
-            inner_end = (char*)(inner + 1);
-        } else
-        {
-            inner_value = strtol(inner, &inner_end, 10);
-
-            if (!CHECK(ERROR, inner != inner_end,
-                       "parse_argument: invalid memory literal '%s'", inner))
-            {
-                printf("PARSE_ARGUMENT: INVALID MEMORY LITERAL!\n");
-                return ERR_BAD_ARG;
-            }
-        }
-
-        while (*inner_end && isspace((unsigned char)*inner_end)) inner_end++;
-
-        if (!CHECK(ERROR, *inner_end == closing,
-                   "parse_argument: missing closing symbol"))
-        {
-            printf("PARSE_ARGUMENT: MISSING CLOSING SYMBOL!\n");
-            return ERR_BAD_ARG;
-        }
-
-        endptr = inner_end + 1;
-        value  = inner_value;
-    }
-    else
-    {
-        value = strtol(token, &endptr, 10);
-
-        if (!CHECK(ERROR, token != endptr,
-                   "parse_argument: invalid literal '%s'", token))
-        {
-            printf("PARSE_ARGUMENT: INVALID LITERAL!\n");
-            return ERR_BAD_ARG;
-        }
+        default:
+            rc = parse_numeric_literal_arg(token, &value, &endptr);
+            break;
     }
 
-    *cursor = (const char*)endptr;
+    if (rc != OK) return rc;
+
+    *cursor = endptr;
     if (out_value) *out_value = value;
 
     return OK;

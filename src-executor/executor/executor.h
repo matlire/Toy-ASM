@@ -9,6 +9,11 @@
 #include "executor_types.h"
 #include "instruction_handlers/instruction_handlers.h"
 
+#include "../../libs/instruction_set/instruction_set.h"
+
+typedef err_t (*instruction_handler_t)(cpu_t * const cpu, const long * const args,
+                                       const size_t argc);
+
 err_t cpu_init    (cpu_t* cpu);
 void  cpu_destroy (cpu_t* cpu);
 

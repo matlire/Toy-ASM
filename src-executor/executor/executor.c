@@ -6,6 +6,12 @@
 
 DEFINE_STACK_PRINTER_SIMPLE(long, "%ld")
 
+static const instruction_handler_t i_handlers[INSTRUCTION_TABLE_CAPACITY] = {
+#define HANDLER_ROW(symbol, name, argc, opcode) [symbol] = &exec_##symbol,
+    INSTRUCTION_LIST(HANDLER_ROW)
+#undef HANDLER_ROW
+};
+
 err_t cpu_init(cpu_t* cpu)
 {
     if (!CHECK(ERROR, cpu != NULL, "cpu_init: cpu pointer is NULL"))
@@ -154,51 +160,11 @@ static err_t switcher(cpu_t* cpu,
                instruction >= 0 && instruction < INSTRUCTION_TABLE_CAPACITY,
                "switcher: invalid instruction id %d", instruction))
         return ERR_BAD_ARG;
-
-    err_t rc = OK;
-    // Rewrite
-    switch (instruction)
-    {
-        case HLT:    rc = exec_hlt   (cpu, args, arg_count); break;
-        case PUSH:   rc = exec_push  (cpu, args, arg_count); break;
-        case POP:    rc = exec_pop   (cpu, args, arg_count); break;
-        case OUT:    rc = exec_out   (cpu, args, arg_count); break;
-        
-        case ADD:    rc = exec_add   (cpu, args, arg_count); break;
-        case SUB:    rc = exec_sub   (cpu, args, arg_count); break;
-        case MUL:    rc = exec_mul   (cpu, args, arg_count); break;
-        case DIV:    rc = exec_div   (cpu, args, arg_count); break;
-        case QROOT:  rc = exec_qroot (cpu, args, arg_count); break;
-        case SQ:     rc = exec_sq    (cpu, args, arg_count); break;
-
-        case IN:     rc = exec_in    (cpu, args, arg_count); break;
-        case TOPOUT: rc = exec_topout(cpu, args, arg_count); break;
-        case PUSHR:  rc = exec_pushr (cpu, args, arg_count); break;
-        case POPR:   rc = exec_popr  (cpu, args, arg_count); break;
-
-        case JMP:    rc = exec_jmp   (cpu, args, arg_count); break;
-        case JB:     rc = exec_jb    (cpu, args, arg_count); break;
-        case JBE:    rc = exec_jbe   (cpu, args, arg_count); break;
-        case JA:     rc = exec_ja    (cpu, args, arg_count); break;
-        case JAE:    rc = exec_jae   (cpu, args, arg_count); break;
-        case JE:     rc = exec_je    (cpu, args, arg_count); break;
-        case JNE:    rc = exec_jne   (cpu, args, arg_count); break;
-
-        case CALL:   rc = exec_call  (cpu, args, arg_count); break;
-        case RET:    rc = exec_ret   (cpu, args, arg_count); break;
-
-        case PUSHM:  rc = exec_pushm (cpu, args, arg_count); break;
-        case POPM:   rc = exec_popm  (cpu, args, arg_count); break;
-        case PUSHVM: rc = exec_pushvm(cpu, args, arg_count); break;
-        case POPVM:  rc = exec_popvm (cpu, args, arg_count); break;
-
-        case DUMP:   rc = exec_dump  (cpu, args, arg_count); break;
-        case DRAW:   rc = exec_draw  (cpu, args, arg_count); break;
-
-        default: break;
-    }
-
-    return rc;
+   
+    instruction_handler_t h = i_handlers[instruction];
+    if (!h) return ERR_BAD_ARG;
+    
+    return h(cpu, args, arg_count);
 }
 
 static err_t exec_loop(cpu_t* cpu)

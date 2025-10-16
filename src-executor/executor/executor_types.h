@@ -10,7 +10,7 @@
 #include "../../libs/io/io.h"
 #include "../../libs/instruction_set/instruction_set.h"
 
-typedef long reg_t;
+typedef int64_t reg_t;
 
 #define CPU_REGISTER_SIZE (sizeof(reg_t))
 #define CPU_REGISTER_COUNT 8

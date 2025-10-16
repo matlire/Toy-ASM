@@ -2,19 +2,25 @@
 
 #include <math.h>
 
-static int ensure_register_index(size_t* out_index, const long* args, size_t arg_count)
+static int ensure_register_index(size_t* out_index, const long* args, size_t argc)
 {
-    if (!out_index || !args || arg_count == 0) return 0;
+    if (!out_index || !args || argc == 0) return 0;
     long idx = args[0];
     if (idx < 0 || (size_t)idx >= CPU_REGISTER_COUNT) return 0;
     *out_index = (size_t)idx;
     return 1;
 }
 
-err_t exec_hlt(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_NOP(cpu_t * const cpu, const long * const args, const size_t argc)
+{
+    (void)cpu; (void)args; (void)argc;
+    return OK;
+}
+
+err_t exec_HLT(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     if (!cpu) return ERR_BAD_ARG;
 
@@ -22,25 +28,25 @@ err_t exec_hlt(cpu_t* cpu, const long* args, size_t arg_count)
     return OK;
 }
 
-err_t exec_push(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_PUSH(cpu_t * const cpu, const long * const args, const size_t argc)
 {
-    if (arg_count < 1 || !args) return ERR_BAD_ARG;
+    if (argc < 1 || !args) return ERR_BAD_ARG;
     return STACK_PUSH(cpu->code_stack, args[0]);
 }
 
-err_t exec_pop(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_POP(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long discarded = 0;
     return STACK_POP(cpu->code_stack, discarded);
 }
 
-err_t exec_out(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_OUT(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long value = 0;
     err_t rc   = STACK_POP(cpu->code_stack, value);
@@ -48,10 +54,10 @@ err_t exec_out(cpu_t* cpu, const long* args, size_t arg_count)
     return rc;
 }
 
-err_t exec_add(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_ADD(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     long arg2 = 0;
@@ -63,10 +69,10 @@ err_t exec_add(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_sub(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_SUB(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     long arg2 = 0;
@@ -78,10 +84,10 @@ err_t exec_sub(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_mul(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_MUL(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     long arg2 = 0;
@@ -93,10 +99,10 @@ err_t exec_mul(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_div(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_DIV(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     long arg2 = 0;
@@ -110,10 +116,10 @@ err_t exec_div(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_qroot(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_QROOT(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     err_t rc  = STACK_POP(cpu->code_stack, arg1);
@@ -123,10 +129,10 @@ err_t exec_qroot(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_sq(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_SQ(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long arg1 = 0;
     err_t rc  = STACK_POP(cpu->code_stack, arg1);
@@ -136,19 +142,19 @@ err_t exec_sq(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, res);
 }
 
-err_t exec_pushr(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_PUSHR(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long value = cpu->x[reg_index].value.value;
     return STACK_PUSH(cpu->code_stack, value);
 }
 
-err_t exec_popr(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_POPR(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long value = 0;
     err_t rc   = STACK_POP(cpu->code_stack, value);
@@ -159,10 +165,10 @@ err_t exec_popr(cpu_t* cpu, const long* args, size_t arg_count)
     return OK;
 }
 
-err_t exec_in(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_IN(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long value = 0;
     printf("Waiting for input: ");
@@ -171,10 +177,10 @@ err_t exec_in(cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, value);
 }
 
-err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_TOPOUT(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     long value = 0;
     err_t rc   = stack_top(cpu->code_stack, &value);
@@ -184,18 +190,18 @@ err_t exec_topout(cpu_t* cpu, const long* args, size_t arg_count)
     return OK;
 }
 
-err_t exec_jmp(cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_JMP(cpu_t * const cpu, const long * const args, const size_t argc)
 {
-    (void)arg_count;
+    (void)argc;
 
     cpu->pc = args[0];
 
     return OK;
 }
 
-err_t exec_call  (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_CALL(cpu_t * const cpu, const long * const args, const size_t argc)
 {
-    (void)arg_count;
+    (void)argc;
 
     err_t rc = STACK_PUSH(cpu->ret_stack, cpu->pc);
     cpu->pc  = args[0];
@@ -203,10 +209,10 @@ err_t exec_call  (cpu_t* cpu, const long* args, size_t arg_count)
     return rc;
 }
 
-err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_RET(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
     
     long arg1 = 0;
     err_t rc  = STACK_POP(cpu->ret_stack, arg1);
@@ -218,10 +224,10 @@ err_t exec_ret   (cpu_t* cpu, const long* args, size_t arg_count)
 
 }
 
-err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_PUSHM(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long addr  = cpu->x[reg_index].value.value;
     if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
@@ -231,10 +237,10 @@ err_t exec_pushm (cpu_t* cpu, const long* args, size_t arg_count)
     return rc;
 }
 
-err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_POPM(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long addr  = cpu->x[reg_index].value.value;
     if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
@@ -242,10 +248,10 @@ err_t exec_popm  (cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, value);
 }
 
-err_t exec_pushvm (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_PUSHVM(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long addr = cpu->x[reg_index].value.value;
     if (addr >= VRAM_SIZE) return ERR_BAD_ARG;
@@ -253,10 +259,10 @@ err_t exec_pushvm (cpu_t* cpu, const long* args, size_t arg_count)
     return STACK_PUSH(cpu->code_stack, value);
 }
 
-err_t exec_popvm  (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_POPVM(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, arg_count)) return ERR_BAD_ARG;
+    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
     long addr  = cpu->x[reg_index].value.value;
     if (addr  >= VRAM_SIZE) return ERR_BAD_ARG;
@@ -266,10 +272,10 @@ err_t exec_popvm  (cpu_t* cpu, const long* args, size_t arg_count)
     return rc;
 }
 
-err_t exec_draw  (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     clear();
 
@@ -300,12 +306,38 @@ err_t exec_draw  (cpu_t* cpu, const long* args, size_t arg_count)
     return OK;
 }
 
-err_t exec_dump  (cpu_t* cpu, const long* args, size_t arg_count)
+err_t exec_DUMP(cpu_t * const cpu, const long * const args, const size_t argc)
 {
     (void)args;
-    (void)arg_count;
+    (void)argc;
 
     cpu_dump_state(cpu, DEBUG);
 
     return OK;
 }
+
+#define DEFINE_COND_JUMP_FUNC(name, op)                                      \
+    err_t exec_##name(cpu_t* cpu, const long* args, size_t arg_count)        \
+    {                                                                        \
+        if (!(cpu)) return ERR_BAD_ARG;                                      \
+        if (!(args) || (arg_count) < 1) return ERR_BAD_ARG;                  \
+                                                                             \
+        long lhs = 0;                                                        \
+        long rhs = 0;                                                        \
+                                                                             \
+        err_t rc = exec_pop_operands((cpu), &lhs, &rhs);                     \
+        if (rc != OK) return rc;                                             \
+                                                                             \
+        if (lhs op rhs)                                                      \
+            return exec_JMP((cpu), (args), (arg_count));                     \
+                                                                             \
+        return OK;                                                           \
+    }                                                                        \
+
+DEFINE_COND_JUMP_FUNC(JB,  <);
+DEFINE_COND_JUMP_FUNC(JBE, <=);
+DEFINE_COND_JUMP_FUNC(JA,  >);
+DEFINE_COND_JUMP_FUNC(JAE, >=);
+DEFINE_COND_JUMP_FUNC(JE,  ==);
+DEFINE_COND_JUMP_FUNC(JNE, !=);
+
