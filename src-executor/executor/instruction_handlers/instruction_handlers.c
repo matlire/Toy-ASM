@@ -281,8 +281,8 @@ err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
 
     for (size_t row = 0; row < SCREEN_HEIGHT; ++row)
     {
-        char   line[SCREEN_WIDTH] = { 0 };
-        size_t len                = 0;
+        char   line[SCREEN_WIDTH + 1] = { 0 };
+        size_t len                    = 0;
 
         for (size_t col = 0; col < SCREEN_WIDTH; ++col)
         {
@@ -292,7 +292,6 @@ err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
             if (len + 2 >= sizeof(line)) break;
 
             line[len++] = ch;
-            line[len++] = ' ';
         }
 
         if (len > 0)
@@ -301,6 +300,19 @@ err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
             line[0] = '\0';
 
         printf("%s\n", line);
+    }
+
+    return OK;
+}
+
+err_t exec_CLEANVM(cpu_t * const cpu, const long * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    for (size_t i = 0; i < VRAM_SIZE; i++)
+    {
+        cpu->vram[i] = ' ';
     }
 
     return OK;

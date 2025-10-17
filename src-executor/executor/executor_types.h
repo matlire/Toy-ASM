@@ -13,7 +13,7 @@
 typedef int64_t reg_t;
 
 #define CPU_REGISTER_SIZE (sizeof(reg_t))
-#define CPU_REGISTER_COUNT 8
+#define CPU_REGISTER_COUNT 16
 
 #define RAM_SIZE  128
 

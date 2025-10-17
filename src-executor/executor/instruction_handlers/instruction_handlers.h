@@ -13,7 +13,7 @@
 INSTRUCTION_LIST(DECL_HANDLER)
 #undef DECL_HANDLER
 
-#define clear() printf("\033[H\033[J")
+#define clear() printf("\033[3J\033[H\033[2J")
 
 static err_t exec_pop_operands(cpu_t* cpu, long* lhs, long* rhs)
 {

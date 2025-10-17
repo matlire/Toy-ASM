@@ -22,8 +22,8 @@ static label_parse_status_t label_parse_token(const char*    token,
 
     if (cursor == name_start) return LABEL_PARSE_ERR_INVALID;
 
-    out->name       = name_start;
-    out->length     = (size_t)(cursor - name_start);
+    out->name   = name_start;
+    out->length = (size_t)(cursor - name_start);
 
     return LABEL_PARSE_OK;
 }
@@ -104,7 +104,7 @@ static err_t process_label_definition(asm_t* as,
                "process_label_definition: missing ':' label prefix"))
         return ERR_BAD_ARG;
 
-    label_token_t label           = { 0 };
+    label_token_t        label    = { 0 };
     label_parse_status_t parse_rc = label_parse_token(trimmed, &label);
 
     if (!CHECK(ERROR, parse_rc == LABEL_PARSE_OK,

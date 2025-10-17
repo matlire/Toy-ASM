@@ -9,8 +9,8 @@
 #define MAX_LINE_LEN         64
 #define MAX_INSTRUCTION_ARGS 4
 
-#define INSTRUCTION_SET_VERSION_MAJOR 0U
-#define INSTRUCTION_SET_VERSION_MINOR 7U
+#define INSTRUCTION_SET_VERSION_MAJOR 1U
+#define INSTRUCTION_SET_VERSION_MINOR 0U
 
 #define INSTRUCTION_BINARY_MAGIC_LEN  4U
 
@@ -67,7 +67,8 @@ typedef struct
     X(PUSHM,  "PUSHM",  1,  35)    \
     X(POPM,   "POPM",   1,  36)    \
     X(PUSHVM, "PUSHVM", 1,  37)    \
-    X(POPVM,  "POPVM",  1,  38)
+    X(POPVM,  "POPVM",  1,  38)    \
+    X(CLEANVM,"CLEANVM",1,  39)
 
 typedef enum
 {

@@ -38,7 +38,7 @@ err_t cpu_init(cpu_t* cpu)
         cpu->ram[i] = 0;
 
     for (size_t i = 0; i < VRAM_SIZE; i++)
-        cpu->vram[i] = 0;
+        cpu->vram[i] = ' ';
 
     STACK_INIT(cpu_code_stack, long);
     if (!CHECK(ERROR, stack_init_rc_cpu_code_stack == OK,
