@@ -167,7 +167,7 @@ static err_t switcher(cpu_t* cpu,
     return h(cpu, args, arg_count);
 }
 
-static err_t exec_loop(cpu_t* cpu)
+static err_t exec_loop(cpu_t* cpu, logging_level level)
 {
     if (!CHECK(ERROR, cpu != NULL, "exec_loop: cpu pointer is NULL"))
         return ERR_BAD_ARG;
@@ -229,15 +229,14 @@ static err_t exec_loop(cpu_t* cpu)
             memcpy(&stored, cpu->code + cpu->pc, sizeof(stored));
             cpu->pc += sizeof(stored);
             args[arg_idx] = (long)stored;
-        }
-
-        cpu_dump_step(cpu, pc_before, instruction, args, encode_stackd_arg, DEBUG);
+        } 
 
         exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
 
-        if (exec_rc == OK && (instruction == CALL || instruction == RET))
+        if (level == DEBUG && (instruction == CALL || instruction == RET))
         {
-            cpu_dump_state(cpu, DEBUG);
+            cpu_dump_state(cpu, level);
+            cpu_dump_step (cpu, pc_before, instruction, args, encode_stackd_arg, level);
         }
 
         if (exec_rc != OK) break;
@@ -303,7 +302,7 @@ err_t load_program(operational_data_t * const op_data, cpu_t* cpu)
     return OK;
 }
 
-err_t exec_stream(cpu_t* cpu)
+err_t exec_stream(cpu_t* cpu, logging_level level)
 {
-    return exec_loop(cpu);
+    return exec_loop(cpu, level);
 }

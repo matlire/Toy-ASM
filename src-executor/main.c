@@ -5,13 +5,14 @@
 #include "../libs/io/io.h"
 
 const char* IN_FILE  = NULL;
+logging_level level = INFO;
 
 void on_terminate();
 
 int main(const int argc, char* const argv[])
 {
     atexit(on_terminate);
-    init_logging("log.log", DEBUG);
+    init_logging("log.log", level);
  
     size_t res = parse_arguments(argc, argv, &IN_FILE, NULL);
     if(!CHECK(ERROR, res == 1 && IN_FILE != NULL, "FILE NOT PROVIDED!"))
@@ -52,7 +53,7 @@ int main(const int argc, char* const argv[])
     /*
         Exec programm
     */
-    rc = exec_stream(&cpu);
+    rc = exec_stream(&cpu, level);
     
     if (!CHECK(ERROR, rc == OK, "main: execute program stream failed"))
     {
@@ -70,7 +71,5 @@ int main(const int argc, char* const argv[])
 
 void on_terminate()
 {
-    free((char*)IN_FILE);
-
     close_log_file();
 }

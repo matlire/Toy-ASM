@@ -323,7 +323,7 @@ err_t exec_DUMP(cpu_t * const cpu, const long * const args, const size_t argc)
     (void)args;
     (void)argc;
 
-    cpu_dump_state(cpu, DEBUG);
+    cpu_dump_state(cpu, INFO);
 
     return OK;
 }

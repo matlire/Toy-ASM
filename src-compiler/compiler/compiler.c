@@ -139,13 +139,6 @@ size_t update_header(operational_data_t * const op_data,
             break;
         }
 
-        if (!CHECK(ERROR, fflush(op_data->out_file) == 0,
-                    "update_header: failed to flush output stream"))
-        {
-            printf("UPDATE_HEADER: FLUSH FAILED!\n");
-            break;
-        }
-
         asm_dump_header(header, DEBUG);
 
         rc = OK;

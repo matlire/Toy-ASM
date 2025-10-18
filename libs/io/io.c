@@ -19,11 +19,7 @@ size_t parse_arguments(const int argc, char* const argv[],          \
             if (!CHECK(ERROR, *in_file == NULL, 
                        "--infile specified multiple times")) return 0;
 
-            const char* value = argv[++i];
-            char* duplicated = strdup(value);
-            if (!CHECK(ERROR, duplicated != NULL, "Failed to duplicate infile path")) return 0;
-
-            *in_file = duplicated;
+            *in_file = argv[++i];
             parsed++;
             continue;
         }
@@ -37,11 +33,7 @@ size_t parse_arguments(const int argc, char* const argv[],          \
             if (!CHECK(ERROR, *out_file == NULL, 
                        "--outfile specified multiple times")) return 0;
 
-            const char* value = argv[++i];
-            char* duplicated = strdup(value);
-            if (!CHECK(ERROR, duplicated != NULL, "Failed to duplicate outfile path")) return 0;
-
-            *out_file = duplicated;
+            *out_file = argv[++i];
             parsed++;
             continue;
         }

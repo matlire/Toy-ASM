@@ -126,8 +126,5 @@ int main(const int argc, char* const argv[])
 
 void on_terminate()
 {
-    free((char*)IN_FILE);
-    free((char*)OUT_FILE);
-
     close_log_file();
 }

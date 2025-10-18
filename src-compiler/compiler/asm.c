@@ -167,7 +167,7 @@ static err_t parse_register_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    if (out_end)  *out_end  = endptr;
+    if (out_end)     *out_end = endptr;
     if (out_value) *out_value = value;
 
     return OK;
@@ -223,8 +223,8 @@ static err_t parse_memory_arg(const char* token,
 {
     if (!token) return ERR_BAD_ARG;
 
-    const char closing = ']';
-    const char* inner  = token + 1;
+    const char  closing = ']';
+    const char* inner   = token + 1;
 
     while (*inner && isspace((unsigned char)*inner)) inner++;
 

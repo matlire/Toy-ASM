@@ -1,10 +1,10 @@
-PUSH 5
+PUSH 27
 POPR x8 ; radius
 
-PUSH 16
+PUSH 64
 POPR x0 ; height
 
-PUSH 64
+PUSH 256
 POPR x10 ; width
 
 PUSHR x10
@@ -16,6 +16,9 @@ PUSHR x0
 PUSH 2
 DIV
 POPR x2 ; y0, height / 2
+
+PUSH 5
+POPR x12 ; SY, vertical weight for aspect correction 
 
 PUSH 0
 POPR x3 ; row
@@ -51,11 +54,13 @@ HLT
     CALL :mod
     POPR x7 ; y
 
-    ; Check if x^2 + y^2 < r^2
+    ; Check if x^2 + SY*y^2 < r^2  (aspect-corrected)
     PUSHR x6
     SQ
     PUSHR x7
     SQ
+    PUSHR x12
+    MUL
     ADD
     PUSHR x8
     SQ
@@ -72,7 +77,7 @@ HLT
     ADD
     POPR x5
 
-    ; Increment column
+    ; col++
     PUSHR x4
     PUSHR x10
     PUSH 1
@@ -81,7 +86,7 @@ HLT
     PUSH -1
     POPR x4
 
-    ; Increment row
+    ; row++
     PUSHR x3
     PUSH 1
     ADD
@@ -93,6 +98,7 @@ HLT
     ADD
     POPR x4
     
+    ; loop while row < height
     PUSHR x0
     PUSHR x3
     JA :loop
@@ -105,3 +111,4 @@ HLT
     MUL
     :mod_ready
     RET
+

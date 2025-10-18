@@ -17,8 +17,8 @@ typedef int64_t reg_t;
 
 #define RAM_SIZE  128
 
-#define SCREEN_WIDTH  64
-#define SCREEN_HEIGHT 16
+#define SCREEN_WIDTH  256
+#define SCREEN_HEIGHT 64
 #define VRAM_SIZE     SCREEN_WIDTH * SCREEN_HEIGHT
 
 typedef union
@@ -40,6 +40,7 @@ typedef struct
     char*          code;
     size_t         code_size;
     size_t         pc;
+
     cpu_register_t x[CPU_REGISTER_COUNT];
 
     long           ram[RAM_SIZE];
