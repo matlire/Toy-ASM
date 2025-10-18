@@ -14,6 +14,8 @@ int main(const int argc, char* const argv[])
 {
     atexit(on_terminate);
     init_logging("log.log", DEBUG);
+
+    int exit_code = 0;
  
     size_t res = parse_arguments(argc, argv, &IN_FILE, &OUT_FILE);
     if (!CHECK(ERROR, res == 2 && IN_FILE && OUT_FILE, "main: files not provided"))
@@ -63,7 +65,8 @@ int main(const int argc, char* const argv[])
                    "main: failed to generate & write binary header"))
     {
         printf("HEADER GENERATE & WRITE FAILED!\n");
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     }
 
     /*
@@ -75,7 +78,8 @@ int main(const int argc, char* const argv[])
             "main: first pass failed"))
     {
         printf("FIRST PASS FAILED!\n");
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     }
 
     /*
@@ -87,7 +91,8 @@ int main(const int argc, char* const argv[])
                 "main: second pass failed"))
     {
         printf("SECOND PASS FAILED!\n");
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     }
 
     if (!CHECK(ERROR, body_written <= UINT32_MAX,
@@ -95,7 +100,8 @@ int main(const int argc, char* const argv[])
                body_written))
     {
         printf("BODY TOO LARGE!\n");
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     }
 
     /*
@@ -109,19 +115,17 @@ int main(const int argc, char* const argv[])
                body_written))
     {
         printf("PARSE_FILE: BODY TOO LARGE!\n");
-        return 1;
+        exit_code = 1;
+        goto cleanup;
     }
 
-    // size_t total_written  = header_written + body_written;
-
+cleanup:
     asm_destroy(&assembler);
     free(op_data.buffer);
-
     fclose(op_data.in_file);
     fclose(op_data.out_file);
-
-    
-    return 0;
+    close_log_file();
+    return exit_code;
 }
 
 void on_terminate()

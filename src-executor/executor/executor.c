@@ -12,6 +12,72 @@ static const instruction_handler_t i_handlers[INSTRUCTION_TABLE_CAPACITY] = {
 #undef HANDLER_ROW
 };
 
+static inline void stack_assign_cell64_t(void* dst, const void* src, size_t size)
+{
+    (void)size;
+    *(cell64_t*)dst = *(const cell64_t*)src;
+}
+
+static inline void hex_bytes_append(char* dst, size_t dstsz,
+                                    const void* p, size_t n)
+{
+    size_t len = dst && dstsz ? strnlen(dst, dstsz) : 0;
+    const unsigned char* b = (const unsigned char*)p;
+    for (size_t i = 0; i < n && len < dstsz; ++i)
+    {
+        int w = snprintf(dst + len, dstsz - len, "%02X%s",
+                         b[i], (i + 1 < n ? " " : ""));
+        if (w < 0) break;
+        len += (size_t)w;
+        if (len >= dstsz) { len = dstsz - 1; break; }
+    }
+}
+
+static inline int fprint_cell_payloads(FILE* out, const uint64_t u, const int64_t i)
+{
+    double d;
+    memcpy(&d, &u, sizeof(d));
+
+    return fprintf(out,
+                   "[i=%" PRId64 " u=%" PRIu64 " f=%.17g hex=%016" PRIX64 "]",
+                   (i64_t)i,
+                   (u64_t)u,
+                   d,
+                   (u64_t)u);
+}
+
+static int print_cell64_t(FILE* __OUT__, const void* __VP)
+{
+    const cell64_t* c = (const cell64_t*)__VP;
+    return fprint_cell_payloads(__OUT__, c->u64, c->i64);
+}
+
+static int sprint_cell64_t(char* __dst, size_t __dstsz, const void* __VP)
+{
+    const cell64_t* c = (const cell64_t*)__VP;
+
+    size_t len = (__dst && __dstsz) ? strnlen(__dst, __dstsz) : 0;
+    if (len >= __dstsz) return 0;
+
+    double d;
+    memcpy(&d, &c->u64, sizeof(d));
+    int w = snprintf(__dst + len, __dstsz - len,
+                     "[i=%" PRId64 " u=%" PRIu64 " f=%.17g hex=%016" PRIX64 "]",
+                     (i64_t)c->i64,
+                     (u64_t)c->u64,
+                     d,
+                     (u64_t)c->u64);
+    if (w < 0) return 0;
+
+    len = strnlen(__dst, __dstsz);
+    if (len + 1 < __dstsz) {
+        __dst[len++] = ' ';
+        __dst[len]   = '\0';
+        hex_bytes_append(__dst, __dstsz, &c->u64, sizeof(c->u64));
+    }
+
+    return w;
+}
 err_t cpu_init(cpu_t* cpu)
 {
     if (!CHECK(ERROR, cpu != NULL, "cpu_init: cpu pointer is NULL"))
@@ -25,34 +91,43 @@ err_t cpu_init(cpu_t* cpu)
     cpu->code_size            = 0;
     cpu->pc                   = 0;
 
-    static char register_names[CPU_REGISTER_COUNT][8] = { { 0 } };
+    static char ir_names[CPU_IR_COUNT][8] = { { 0 } };
+    static char fr_names[CPU_FR_COUNT][8] = { { 0 } };
 
-    for (size_t i = 0; i < CPU_REGISTER_COUNT; i++)
+    for (size_t i = 0; i < CPU_IR_COUNT; i++)
     {
-        snprintf(register_names[i], sizeof(register_names[i]), "x%zu", i);
-        cpu->x[i].name        = register_names[i];
+        snprintf(ir_names[i], sizeof(ir_names[i]), "x%zu", i);
+        cpu->x[i].name        = ir_names[i];
         cpu->x[i].value.value = 0;
     }
 
+    for (size_t i = 0; i < CPU_FR_COUNT; i++)
+    {
+        snprintf(fr_names[i], sizeof(fr_names[i]), "fx%zu", i);
+        cpu->fx[i].name        = fr_names[i];
+        cpu->fx[i].value.value = 0.0;
+    }
+
     for (size_t i = 0; i < RAM_SIZE; i++)
-        cpu->ram[i] = 0;
+        cpu->ram[i] = (cell64_t){ .u64 = 0 };
 
     for (size_t i = 0; i < VRAM_SIZE; i++)
         cpu->vram[i] = ' ';
 
-    STACK_INIT(cpu_code_stack, long);
-    if (!CHECK(ERROR, stack_init_rc_cpu_code_stack == OK,
-               "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_code_stack))
-        return stack_init_rc_cpu_code_stack;
+    element_info_t ei = ELEMENT_INFO_INIT(cell64_t);
+    ei.copy_fn        = stack_assign_cell64_t;
+    err_t rc = stack_ctor(&cpu->code_stack, ei, print_cell64_t, sprint_cell64_t, 
+                          STACK_INFO_INIT(code_stack));
 
-    STACK_INIT(cpu_ret_stack, long);
-    if (!CHECK(ERROR, stack_init_rc_cpu_ret_stack == OK,
-               "cpu_init: stack ctor failed rc=%d", stack_init_rc_cpu_ret_stack))
-        return stack_init_rc_cpu_ret_stack;
+    if (!CHECK(ERROR, rc == OK,
+               "cpu_init: stack ctor failed rc=%d", rc))
+        return rc;
 
-
-    cpu->code_stack = cpu_code_stack;
-    cpu->ret_stack  = cpu_ret_stack;
+    rc = stack_ctor(&cpu->ret_stack, ei, print_cell64_t, sprint_cell64_t, 
+                    STACK_INFO_INIT(ret_stack));
+    if (!CHECK(ERROR, rc == OK,
+               "cpu_init: stack ctor failed rc=%d", rc))
+        return rc;
 
     return OK;
 }
@@ -154,7 +229,7 @@ static err_t parse_binary_header(char** cursor,
 
 static err_t switcher(cpu_t* cpu,
                       const instruction_set instruction,
-                      const long* args, size_t arg_count)
+                      const cell64_t* args, size_t arg_count)
 { 
     if (!CHECK(ERROR,
                instruction >= 0 && instruction < INSTRUCTION_TABLE_CAPACITY,
@@ -214,7 +289,7 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
             break;
         }
 
-        size_t required = (size_t)encode_stackd_arg * sizeof(int32_t);
+        size_t required = (size_t)encode_stackd_arg * CPU_CELL_SIZE;
         if (!CHECK(ERROR, cpu->pc + required <= cpu->code_size,
                    "exec_loop: truncated arguments for opcode_stack %u", opcode_stack))
         {
@@ -222,13 +297,11 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
             break;
         }
 
-        long args[MAX_INSTRUCTION_ARGS] = { 0 };
+        cell64_t args[MAX_INSTRUCTION_ARGS] = { 0 };
         for (size_t arg_idx = 0; arg_idx < encode_stackd_arg; ++arg_idx)
         {
-            int32_t stored = 0;
-            memcpy(&stored, cpu->code + cpu->pc, sizeof(stored));
-            cpu->pc += sizeof(stored);
-            args[arg_idx] = (long)stored;
+            memcpy(&args[arg_idx], cpu->code + cpu->pc, CPU_CELL_SIZE);
+            cpu->pc += CPU_CELL_SIZE;
         } 
 
         exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);

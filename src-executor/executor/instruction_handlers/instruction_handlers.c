@@ -2,22 +2,41 @@
 
 #include <math.h>
 
-static int ensure_register_index(size_t* out_index, const long* args, size_t argc)
+#include <inttypes.h>
+
+static inline int64_t  g_ci64(cell64_t c) { return c.i64; }
+static inline uint64_t g_cu64(cell64_t c) { return c.u64; }
+static inline double   g_cf64(cell64_t c) { return c.f64; }
+
+static inline cell64_t s_ci64(int64_t v)  { cell64_t c; c.i64=v; return c; }
+static inline cell64_t s_cu64(uint64_t v) { cell64_t c; c.u64=v; return c; }
+static inline cell64_t s_cf64(double v)   { cell64_t c; c.f64=v; return c; }
+
+static int ensure_ir_index(size_t* out_index, const cell64_t* args, size_t argc)
 {
     if (!out_index || !args || argc == 0) return 0;
-    long idx = args[0];
-    if (idx < 0 || (size_t)idx >= CPU_REGISTER_COUNT) return 0;
+    size_t idx = (size_t)g_ci64(args[0]);
+    if (idx >= CPU_IR_COUNT) return 0;
+    *out_index = idx;
+    return 1;
+}
+
+static int ensure_fr_index(size_t* out_index, const cell64_t* args, size_t argc)
+{
+    if (!out_index || !args || argc == 0) return 0;
+    size_t idx = (size_t)g_cf64(args[0]);
+    if (idx >= CPU_FR_COUNT) return 0;
     *out_index = (size_t)idx;
     return 1;
 }
 
-err_t exec_NOP(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_NOP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)cpu; (void)args; (void)argc;
     return OK;
 }
 
-err_t exec_HLT(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_HLT(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
@@ -28,251 +47,318 @@ err_t exec_HLT(cpu_t * const cpu, const long * const args, const size_t argc)
     return OK;
 }
 
-err_t exec_PUSH(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_PUSH(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     if (argc < 1 || !args) return ERR_BAD_ARG;
-    return STACK_PUSH(cpu->code_stack, args[0]);
+    return stack_push(cpu->code_stack, &args[0]);
 }
 
-err_t exec_POP(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_FPUSH(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    if (argc < 1 || !args) return ERR_BAD_ARG;
+    return stack_push(cpu->code_stack, &args[0]);
+}
+
+err_t exec_POP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
 
-    long discarded = 0;
-    return STACK_POP(cpu->code_stack, discarded);
+    cell64_t discarded = { 0 };
+    return stack_pop(cpu->code_stack, &discarded);
 }
 
-err_t exec_OUT(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_FPOP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
 
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->code_stack, value);
-    if (rc == OK) printf("%ld\n", value);
+    cell64_t discarded = { 0 };
+    return stack_pop(cpu->code_stack, &discarded);
+}
+
+err_t exec_OUT(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    cell64_t value = { 0 };
+    err_t rc       = stack_pop(cpu->code_stack, &value);
+    if (rc == OK) printf("%" PRId64 "\n", g_ci64(value));
     return rc;
 }
 
-err_t exec_ADD(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_FOUT(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
 
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = exec_pop_operands(cpu, &arg1, &arg2);
-    if (rc != OK) return rc;
-
-    long res = arg1 + arg2;
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_SUB(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = exec_pop_operands(cpu, &arg1, &arg2);
-    if (rc != OK) return rc;
-
-    long res = arg1 - arg2;
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_MUL(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = exec_pop_operands(cpu, &arg1, &arg2);
-    if (rc != OK) return rc;
-
-    long res = arg1 * arg2;
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_DIV(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long arg1 = 0;
-    long arg2 = 0;
-
-    err_t rc = exec_pop_operands(cpu, &arg1, &arg2);
-    if (rc != OK) return rc;
-
-    if (arg2 == 0) return ERR_BAD_ARG;
-
-    long res = arg1 / arg2;
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_QROOT(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long arg1 = 0;
-    err_t rc  = STACK_POP(cpu->code_stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = (long)sqrt(arg1);
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_SQ(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long arg1 = 0;
-    err_t rc  = STACK_POP(cpu->code_stack, arg1);
-    if (rc != OK) return rc;
-
-    long res = (long)(arg1 * arg1);
-    return STACK_PUSH(cpu->code_stack, res);
-}
-
-err_t exec_PUSHR(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
-
-    long value = cpu->x[reg_index].value.value;
-    return STACK_PUSH(cpu->code_stack, value);
-}
-
-err_t exec_POPR(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
-
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->code_stack, value);
-    if (rc != OK) return rc;
-
-    cpu->x[reg_index].value.value = (int)value;
-
-    return OK;
-}
-
-err_t exec_IN(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long value = 0;
-    printf("Waiting for input: ");
-    if (scanf("%ld", &value) != 1) return ERR_BAD_ARG;
-
-    return STACK_PUSH(cpu->code_stack, value);
-}
-
-err_t exec_TOPOUT(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    long value = 0;
-    err_t rc   = stack_top(cpu->code_stack, &value);
-    if (rc != OK) return rc;
-
-    printf("%ld\n", value);
-    return OK;
-}
-
-err_t exec_JMP(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)argc;
-
-    cpu->pc = args[0];
-
-    return OK;
-}
-
-err_t exec_CALL(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    (void)argc;
-
-    err_t rc = STACK_PUSH(cpu->ret_stack, cpu->pc);
-    cpu->pc  = args[0];
-
+    cell64_t value = { 0 };
+    err_t rc       = stack_pop(cpu->code_stack, &value);
+    if (rc == OK) printf("%lf\n", g_cf64(value));
     return rc;
 }
 
-err_t exec_RET(cpu_t * const cpu, const long * const args, const size_t argc)
+#define DEF_UNOP_I64(NAME, EXPR)                                              \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t value = { 0 };                                                   \
+    err_t rc = stack_pop(cpu->code_stack, &value);                            \
+    if (rc != OK) return rc;                                                  \
+    cell64_t out = { 0 };                                                     \
+    out.i64 = (EXPR);                                                         \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
+#define DEF_UNOP_F64(NAME, EXPR)                                              \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t value = { 0 };                                                   \
+    err_t rc = stack_pop(cpu->code_stack, &value);                            \
+    if (rc != OK) return rc;                                                  \
+    cell64_t out = { 0 };                                                     \
+    out.f64 = (EXPR);                                                         \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
+#define DEF_BINOP_I64(NAME, OP, DIV0)                                         \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t rhs = { 0 }, lhs = { 0 };                                        \
+    if (exec_pop_operands(cpu, &lhs, &rhs) != OK) return ERR_CORRUPT;         \
+    if (DIV0 && rhs.i64 == 0) return ERR_BAD_ARG;                             \
+    cell64_t out = { 0 };                                                     \
+    out.i64 = lhs.i64 OP rhs.i64;                                             \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
+#define DEF_BINOP_F64(NAME, OP, DIV0)                                         \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t rhs = { 0 }, lhs = { 0 };                                        \
+    if (exec_pop_operands(cpu, &lhs, &rhs) != OK) return ERR_CORRUPT;         \
+    if (DIV0 && rhs.f64 == 0) return ERR_BAD_ARG;                             \
+    cell64_t out = { 0 };                                                     \
+    out.f64 = lhs.f64 OP rhs.f64;                                             \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
+DEF_BINOP_I64(ADD, +, 0);
+DEF_BINOP_I64(SUB, -, 0);
+DEF_BINOP_I64(MUL, *, 0);
+DEF_BINOP_I64(DIV, /, 1);
+DEF_UNOP_I64(SQRT, sqrt(value.i64));
+DEF_UNOP_I64(SQ,   value.i64 * value.i64);
+
+DEF_BINOP_F64(FADD, +, 0);
+DEF_BINOP_F64(FSUB, -, 0);
+DEF_BINOP_F64(FMUL, *, 0);
+DEF_BINOP_F64(FDIV, /, 1);
+DEF_UNOP_F64(FSQRT, sqrt(value.f64));
+DEF_UNOP_F64(FSQ,   value.f64 * value.f64);
+
+DEF_UNOP_F64(FLOOR, floor(value.f64));
+DEF_UNOP_F64(CEIL,  ceil(value.f64));
+DEF_UNOP_F64(ROUND, round(value.f64));
+DEF_UNOP_F64(ITOF,  (f64_t)(value.i64));
+DEF_UNOP_I64(FTOI,  (i64_t)(floor(value.f64)));
+
+err_t exec_PUSHR(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    size_t reg_index = 0;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+
+    cell64_t value = s_ci64(cpu->x[reg_index].value.value);
+    return stack_push(cpu->code_stack, &value);
+}
+
+err_t exec_FPUSHR(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    size_t reg_index = 0;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+
+    cell64_t value = s_cf64(cpu->fx[reg_index].value.value);
+    return stack_push(cpu->code_stack, &value);
+}
+
+err_t exec_POPR(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    size_t reg_index = 0;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+
+    cell64_t value = { 0 };
+    err_t rc       = stack_pop(cpu->code_stack, &value);
+    if (rc != OK) return rc;
+
+    cpu->x[reg_index].value.value = g_ci64(value);
+
+    return OK;
+}
+
+err_t exec_FPOPR(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    size_t reg_index = 0;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+
+    cell64_t value = { 0 };
+    err_t rc       = stack_pop(cpu->code_stack, &value);
+    if (rc != OK) return rc;
+
+    cpu->fx[reg_index].value.value = g_cf64(value);
+
+    return OK;
+}
+
+err_t exec_IN(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    i64_t value = 0;
+    printf("Waiting for i64 input: ");
+    if (scanf("%" PRId64, &value) != 1) return ERR_BAD_ARG;
+
+    cell64_t v = s_ci64(value);
+    return stack_push(cpu->code_stack, &v);
+}
+
+err_t exec_FIN(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    f64_t value = 0;
+    printf("Waiting for f64 input: ");
+    if (scanf("%lf", &value) != 1) return ERR_BAD_ARG;
+
+    cell64_t v = s_cf64(value);
+    return stack_push(cpu->code_stack, &v);
+}
+
+err_t exec_TOPOUT(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    cell64_t value = { 0 };
+    err_t rc       = stack_top(cpu->code_stack, &value);
+    if (rc != OK) return rc;
+
+    printf("%" PRId64 "\n", g_ci64(value));
+    return OK;
+}
+
+err_t exec_FTOPOUT(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)args;
+    (void)argc;
+
+    cell64_t value = { 0 };
+    err_t rc       = stack_top(cpu->code_stack, &value);
+    if (rc != OK) return rc;
+
+    printf("%lf\n", g_cf64(value));
+    return OK;
+}
+
+err_t exec_JMP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)argc;
+
+    cpu->pc = (size_t)g_ci64(args[0]);
+
+    return OK;
+}
+
+err_t exec_CALL(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    (void)argc;
+
+    cell64_t retpc = s_ci64((i64_t)cpu->pc);
+
+    err_t rc = stack_push(cpu->ret_stack, &retpc);
+    if (rc != OK) return rc;
+    
+    cpu->pc = (size_t)g_ci64(args[0]);
+
+    return OK;}
+
+err_t exec_RET(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
     
-    long arg1 = 0;
-    err_t rc  = STACK_POP(cpu->ret_stack, arg1);
+    cell64_t r = { 0 };
+    err_t rc   = stack_pop(cpu->ret_stack, &r);
     if (rc != OK) return rc;
+    
+    cpu->pc = (size_t)g_ci64(r);
 
-    cpu->pc = arg1;
-
-    return rc;
-
+    return OK;
 }
 
-err_t exec_PUSHM(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_PUSHM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
-    long addr  = cpu->x[reg_index].value.value;
+    size_t addr = cpu->x[reg_index].value.value;
     if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->code_stack, value);
+ 
+    return stack_push(cpu->code_stack, &cpu->ram[addr]); 
+}
+
+err_t exec_POPM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
+{
+    size_t reg_index = 0;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+
+    size_t addr = cpu->x[reg_index].value.value;
+    if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
+    
+    cell64_t value = { 0 };
+    err_t rc       = stack_pop(cpu->code_stack, &value);
+    if (rc != OK) return ERR_CORRUPT;
+
     cpu->ram[addr] = value;
+    
     return rc;
 }
 
-err_t exec_POPM(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_PUSHVM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
-    long addr  = cpu->x[reg_index].value.value;
-    if (addr  >= RAM_SIZE) return ERR_BAD_ARG;
-    long value = cpu->ram[addr];
-    return STACK_PUSH(cpu->code_stack, value);
-}
-
-err_t exec_PUSHVM(cpu_t * const cpu, const long * const args, const size_t argc)
-{
-    size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
-
-    long addr = cpu->x[reg_index].value.value;
+    size_t addr = cpu->x[reg_index].value.value;
     if (addr >= VRAM_SIZE) return ERR_BAD_ARG;
-    long value = cpu->vram[addr];
-    return STACK_PUSH(cpu->code_stack, value);
+    
+    cell64_t value = s_ci64((i64_t)(unsigned char)cpu->vram[addr]);
+    return stack_push(cpu->code_stack, &value);
 }
 
-err_t exec_POPVM(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_POPVM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     size_t reg_index = 0;
-    if (!ensure_register_index(&reg_index, args, argc)) return ERR_BAD_ARG;
+    if (!ensure_ir_index(&reg_index, args, argc)) return ERR_BAD_ARG;
 
-    long addr  = cpu->x[reg_index].value.value;
+    size_t addr = cpu->x[reg_index].value.value;
     if (addr  >= VRAM_SIZE) return ERR_BAD_ARG;
-    long value = 0;
-    err_t rc   = STACK_POP(cpu->code_stack, value);
-    cpu->vram[addr] = value;
+
+    cell64_t value = {0};
+    err_t rc       = stack_pop(cpu->code_stack, &value); 
+    if (rc != OK) return ERR_CORRUPT;
+
+    cpu->vram[addr] = (char)(g_ci64(value) & 0xFF);
+    
     return rc;
 }
 
-err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_DRAW(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
@@ -305,7 +391,7 @@ err_t exec_DRAW(cpu_t * const cpu, const long * const args, const size_t argc)
     return OK;
 }
 
-err_t exec_CLEANVM(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_CLEANVM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
@@ -318,7 +404,7 @@ err_t exec_CLEANVM(cpu_t * const cpu, const long * const args, const size_t argc
     return OK;
 }
 
-err_t exec_DUMP(cpu_t * const cpu, const long * const args, const size_t argc)
+err_t exec_DUMP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
@@ -329,18 +415,18 @@ err_t exec_DUMP(cpu_t * const cpu, const long * const args, const size_t argc)
 }
 
 #define DEFINE_COND_JUMP_FUNC(name, op)                                      \
-    err_t exec_##name(cpu_t* cpu, const long* args, size_t arg_count)        \
+    err_t exec_##name(cpu_t* cpu, const cell64_t* args, size_t arg_count)    \
     {                                                                        \
         if (!(cpu)) return ERR_BAD_ARG;                                      \
         if (!(args) || (arg_count) < 1) return ERR_BAD_ARG;                  \
                                                                              \
-        long lhs = 0;                                                        \
-        long rhs = 0;                                                        \
+        cell64_t lhs = { 0 };                                                \
+        cell64_t rhs = { 0 };                                                \
                                                                              \
         err_t rc = exec_pop_operands((cpu), &lhs, &rhs);                     \
         if (rc != OK) return rc;                                             \
                                                                              \
-        if (lhs op rhs)                                                      \
+        if ((g_ci64(lhs)) op (g_ci64(rhs)))                                  \
             return exec_JMP((cpu), (args), (arg_count));                     \
                                                                              \
         return OK;                                                           \

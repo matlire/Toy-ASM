@@ -151,14 +151,50 @@ static err_t process_label_definition(asm_t* as,
     }
 }
 
-static err_t parse_register_arg(const char* token,
-                                long*       out_value,
-                                const char** out_end)
+static err_t parse_register_arg_any(const char*  token,
+                                    cell64_t*    index,
+                                    int*         out_is_fx,
+                                    char**       out_end)
+{
+    if (!token || token[0] == '\0') return ERR_BAD_ARG;
+
+    const char* p = token;
+    int is_fx     = 0;
+
+    if ((p[0] == 'f' || p[0] == 'F') && (p[1] == 'x' || p[1] == 'X')) {
+        is_fx = 1; p += 2;
+    } else if (p[0] == 'x' || p[0] == 'X') {
+        is_fx = 0; p += 1;
+    } else {
+        return ERR_BAD_ARG;
+    }
+
+    char* endptr = NULL;
+    index->i64 = (i64_t)strtol(p, &endptr, 10);
+    if (endptr == p) return ERR_BAD_ARG;
+
+    if (out_is_fx) *out_is_fx = is_fx;
+    if (out_end)   *out_end   = endptr;
+    return OK;
+}
+
+static int opcode_wants_fx_reg(instruction_set op)
+{
+    return (op == FPUSHR || op == FPOPR);
+}
+
+static err_t parse_register_arg(const char*  token,
+                                cell64_t*    value,
+                                const char** out_end,
+                                int*         is_fx_reg,
+                                int*         is_reg)
 {
     if (!token) return ERR_BAD_ARG;
 
     char* endptr = NULL;
-    long  value  = strtol(token + 1, &endptr, 10);
+
+    err_t rc = parse_register_arg_any(token, value, is_fx_reg, &endptr);
+    if (rc != OK) return rc;
 
     if (!CHECK(ERROR, token + 1 != endptr,
                "parse_argument: invalid register '%s'", token))
@@ -167,16 +203,16 @@ static err_t parse_register_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    if (out_end)     *out_end = endptr;
-    if (out_value) *out_value = value;
+    if (out_end) *out_end = endptr;
+    if (is_reg) *is_reg = 1;
 
     return OK;
 }
 
-static err_t parse_label_arg(asm_t* as,
-                             const char* token,
-                             size_t      iter,
-                             long*       out_value,
+static err_t parse_label_arg(asm_t*       as,
+                             const char*  token,
+                             size_t       iter,
+                             cell64_t*    value,
                              const char** out_end)
 {
     label_token_t        label    = { 0 };
@@ -194,8 +230,6 @@ static err_t parse_label_arg(asm_t* as,
         return ERR_BAD_ARG;
     }
 
-    long value = 0;
-
     if (iter != 0)
     {
         asm_label_t* found = asm_find_label(as, label.name, label.length);
@@ -208,17 +242,16 @@ static err_t parse_label_arg(asm_t* as,
             return ERR_BAD_ARG;
         }
 
-        value = (long)found->offset;
+        value->i64 = (i64_t)found->offset;
     }
 
-    if (out_end)   *out_end   = label.name + label.length;
-    if (out_value) *out_value = value;
+    if (out_end) *out_end = label.name + label.length;
 
     return OK;
 }
 
-static err_t parse_memory_arg(const char* token,
-                              long*       out_value,
+static err_t parse_memory_arg(const char*  token,
+                              cell64_t*    value,
                               const char** out_end)
 {
     if (!token) return ERR_BAD_ARG;
@@ -235,18 +268,20 @@ static err_t parse_memory_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    long value = 0;
     const char* inner_end = NULL;
 
     if ((*inner == 'x' || *inner == 'X') && isdigit((unsigned char)inner[1]))
     {
-        err_t rc = parse_register_arg(inner, &value, &inner_end);
+        int is_fx  = 0;
+        int is_reg = 0;
+        err_t rc = parse_register_arg(inner, value, &inner_end, &is_fx, &is_reg);
         if (rc != OK) return rc;
+        if (is_fx) return ERR_BAD_ARG;
     }
     else
     {
         char* endptr = NULL;
-        value = strtol(inner, &endptr, 10);
+        value->i64 = (i64_t)strtol(inner, &endptr, 10);
 
         if (!CHECK(ERROR, inner != endptr,
                    "parse_argument: invalid memory literal '%s'", inner))
@@ -267,14 +302,13 @@ static err_t parse_memory_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    if (out_end)   *out_end   = inner_end + 1;
-    if (out_value) *out_value = value;
+    if (out_end) *out_end = inner_end + 1;
 
     return OK;
 }
 
-static err_t parse_char_literal_arg(const char* token,
-                                    long*       out_value,
+static err_t parse_char_literal_arg(const char*  token,
+                                    cell64_t*    value,
                                     const char** out_end)
 {
     if (!token) return ERR_BAD_ARG;
@@ -286,9 +320,9 @@ static err_t parse_char_literal_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    long value = (long)(unsigned char)*inner;
+    value->i64 = (i64_t)(unsigned char)*inner;
 
-    if (!CHECK(ERROR, value < 255 && value >= 0,
+    if (!CHECK(ERROR, value->i64 < 255 && value->i64 >= 0,
                "parse_argument: invalid symbol '%s'", inner))
     {
         printf("PARSE_ARGUMENT: INVALID SYMBOL!\n");
@@ -305,20 +339,45 @@ static err_t parse_char_literal_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    if (out_end)   *out_end   = inner_end + 1;
-    if (out_value) *out_value = value;
+    if (out_end) *out_end   = inner_end + 1;
 
     return OK;
 }
 
-static err_t parse_numeric_literal_arg(const char* token,
-                                       long*       out_value,
+static int is_float_token(const char* s)
+{
+    if (!s) return 0;
+    while (*s && isspace((unsigned char)*s)) s++;
+    if (*s == '+' || *s == '-') s++;
+
+    int saw_digit = 0;
+    int saw_dot   = 0;
+
+    const char* p = s;
+    while (*p && !isspace((unsigned char)*p) && *p != ';') {
+        unsigned char c = (unsigned char)*p;
+        if (isdigit(c)) { saw_digit = 1; p++; continue; }
+        if (c == '.')   { saw_dot = 1;   p++; continue; }
+        break;
+    }
+
+    return (saw_dot && saw_digit);
+}
+
+static err_t parse_numeric_literal_arg(const char*  token,
+                                       cell64_t*    value,
                                        const char** out_end)
 {
     if (!token) return ERR_BAD_ARG;
 
     char* endptr = NULL;
-    long  value  = strtol(token, &endptr, 10);
+
+    if (is_float_token(token))
+    {
+        value->f64 = strtod(token, &endptr);
+    } else {
+        value->i64 = strtol(token, &endptr, 10);
+    }
 
     if (!CHECK(ERROR, token != endptr,
                "parse_argument: invalid literal '%s'", token))
@@ -327,56 +386,62 @@ static err_t parse_numeric_literal_arg(const char* token,
         return ERR_BAD_ARG;
     }
 
-    if (out_end)   *out_end   = endptr;
-    if (out_value) *out_value = value;
+    if (out_end) *out_end   = endptr;
 
     return OK;
 }
 
-static err_t parse_argument(asm_t* as,
-                            const char** cursor,
-                            size_t iter,
-                            long* out_value)
+static err_t parse_argument(asm_t*       as, 
+                            const char** cursor, 
+                            size_t       iter, 
+                            cell64_t*    value, 
+                            int*         is_fx_reg, 
+                            int*         is_reg, 
+                            int*         was_float_literal)
 {
+    if (was_float_literal) *was_float_literal = 0;
+
     const char* token = *cursor;
     while (*token && isspace((unsigned char)*token)) token++;
 
     if (!CHECK(ERROR, *token != '\0', "parse_argument: unexpected end of line"))
         return ERR_BAD_ARG;
 
-    long value = 0;
     const char* endptr = NULL;
 
     err_t rc = ERR_BAD_ARG;
 
+    if (is_fx_reg) *is_fx_reg = 0;
+    if (is_reg)    *is_reg    = 0;
+
     switch (*token)
     {
-        case 'x':
-        case 'X':
-            rc = parse_register_arg(token, &value, &endptr);
+        case 'x': case 'X':
+        case 'f': case 'F':
+            rc = parse_register_arg(token, value, &endptr, is_fx_reg, is_reg);
             break;
 
         case ':':
-            rc = parse_label_arg(as, token, iter, &value, &endptr);
+            rc = parse_label_arg(as, token, iter, value, &endptr);
             break;
 
         case '[':
-            rc = parse_memory_arg(token, &value, &endptr);
+            rc = parse_memory_arg(token, value, &endptr);
             break;
 
         case '\'':
-            rc = parse_char_literal_arg(token, &value, &endptr);
+            rc = parse_char_literal_arg(token, value, &endptr);
             break;
 
         default:
-            rc = parse_numeric_literal_arg(token, &value, &endptr);
+            rc = parse_numeric_literal_arg(token, value, &endptr);
+            if (was_float_literal && is_float_token(token)) *was_float_literal = 1;
             break;
     }
 
     if (rc != OK) return rc;
 
     *cursor = endptr;
-    if (out_value) *out_value = value;
 
     return OK;
 }
@@ -441,15 +506,36 @@ static err_t encode_instruction(asm_t* as,
 
     for (size_t arg_idx = 0; arg_idx < meta->expected_args; ++arg_idx)
     {
-        long value = 0;
-        err_t rc   = parse_argument(as, &cursor, iter, &value);
+        cell64_t value = { 0 };
+        int is_fx      = 0;
+        int is_reg     = 0;
+        int was_float  = 0;
+        err_t rc = parse_argument(as, &cursor, iter, &value, &is_fx, &is_reg, &was_float);
 
         if (!CHECK(ERROR, rc == OK, "encode_instruction: failed to parse argument"))
             return rc;
+        
+        if (is_reg) {
+            if (opcode_wants_fx_reg(opcode)) {
+                if (!is_fx) {
+                    printf("ENCODE_INSTRUCTION: '%s' expects fxN register\n", mnemonic);
+                    return ERR_BAD_ARG;
+                }
+            } else {
+                if (is_fx) {
+                    printf("ENCODE_INSTRUCTION: '%s' expects xN register\n", mnemonic);
+                    return ERR_BAD_ARG;
+                }
+            }
+        }
 
-        int32_t stored = (int32_t)value;
-        memcpy(buffer + total, &stored, sizeof(stored));
-        total += sizeof(stored);
+        memcpy(buffer + total, &value, CPU_CELL_SIZE);
+        
+        if (opcode == FPUSH && !is_reg && !was_float) {
+            value.f64 = (f64_t)value.i64;
+        }
+        
+        total += CPU_CELL_SIZE;
 
         while (*cursor && isspace((unsigned char)*cursor)) cursor++;
     }

@@ -18,7 +18,7 @@ void cpu_dump_state         (const cpu_t * const cpu, logging_level level);
 void cpu_dump_step          (const cpu_t * const cpu,
                              size_t              pc_before,
                              instruction_set     opcode,
-                             const long*         args,
+                             const cell64_t*     args,
                              size_t              arg_count,
                              logging_level       level);
 

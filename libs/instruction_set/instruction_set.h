@@ -4,15 +4,33 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <float.h>
+#include <inttypes.h>
+
+#include "instructions_list.h"
 
 #define MAX_INSTRUCTION_LEN  16
 #define MAX_LINE_LEN         64
 #define MAX_INSTRUCTION_ARGS 4
 
-#define INSTRUCTION_SET_VERSION_MAJOR 1U
+#define INSTRUCTION_SET_VERSION_MAJOR 2U
 #define INSTRUCTION_SET_VERSION_MINOR 0U
 
 #define INSTRUCTION_BINARY_MAGIC_LEN  4U
+
+typedef int64_t  i64_t;
+typedef uint64_t u64_t;
+typedef double   f64_t;
+
+typedef union
+{
+    i64_t i64;
+    u64_t u64;
+    f64_t f64;
+    void* p;
+} cell64_t;
+
+#define CPU_CELL_SIZE (sizeof(cell64_t))
 
 typedef struct
 {
@@ -31,44 +49,6 @@ typedef struct
     unsigned int major;
     unsigned int minor;
 } instruction_set_version_t;
-
-#define INSTRUCTION_LIST(X)        \
-    X(NOP,    "NOP",    0,   0)    \
-                                   \
-    X(HLT,    "HLT",    0,   1)    \
-    X(PUSH,   "PUSH",   1,   2)    \
-    X(POP,    "POP",    0,   3)    \
-    X(OUT,    "OUT",    0,   4)    \
-    X(TOPOUT, "TOPOUT", 0,   5)    \
-    X(IN,     "IN",     0,   6)    \
-    X(CALL,   "CALL",   1,   7)    \
-    X(RET,    "RET",    0,   8)    \
-    X(DRAW,   "DRAW",   0,   9)    \
-                                   \
-    X(ADD,    "ADD",    0,  10)    \
-    X(SUB,    "SUB",    0,  11)    \
-    X(MUL,    "MUL",    0,  12)    \
-    X(DIV,    "DIV",    0,  13)    \
-    X(QROOT,  "QROOT",  0,  14)    \
-    X(SQ,     "SQ",     0,  15)    \
-                                   \
-    X(JMP,    "JMP",    1,  16)    \
-    X(JB,     "JB",     1,  17)    \
-    X(JBE,    "JBE",    1,  18)    \
-    X(JA,     "JA",     1,  19)    \
-    X(JAE,    "JAE",    1,  20)    \
-    X(JE,     "JE",     1,  21)    \
-    X(JNE,    "JNE",    1,  22)    \
-                                   \
-    X(DUMP,   "DUMP",   0,  23)    \
-                                   \
-    X(PUSHR,  "PUSHR",  1,  33)    \
-    X(POPR,   "POPR",   1,  34)    \
-    X(PUSHM,  "PUSHM",  1,  35)    \
-    X(POPM,   "POPM",   1,  36)    \
-    X(PUSHVM, "PUSHVM", 1,  37)    \
-    X(POPVM,  "POPVM",  1,  38)    \
-    X(CLEANVM,"CLEANVM",1,  39)
 
 typedef enum
 {

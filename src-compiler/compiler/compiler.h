@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include "../../libs/io/io.h"
 
+#include <inttypes.h>
+
 #define begin do {
 #define end   } while (0)
 

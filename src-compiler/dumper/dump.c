@@ -60,7 +60,7 @@ static void format_bytecode(const unsigned char* data,
         return;
     }
 
-    (void)snprintf(out, out_size, "%08X", (unsigned int)data[0]);
+    (void)snprintf(out, out_size, "%02X %02X", (unsigned)data[0], (unsigned)data[1]);
 }
 
 static void format_args(const unsigned char* data,
@@ -81,30 +81,28 @@ static void format_args(const unsigned char* data,
     size_t remaining            = size - 2;
     size_t written              = 0;
 
-    for (unsigned int idx = 0; idx < expected && remaining >= sizeof(int32_t); ++idx)
+    for (unsigned int idx = 0; idx < expected && remaining >= CPU_CELL_SIZE; ++idx)
     {
-        int32_t value = 0;
-        memcpy(&value, cursor, sizeof(value));
+        cell64_t c = { 0 };
+        memcpy(&c, cursor, CPU_CELL_SIZE);
+        cursor    += CPU_CELL_SIZE;
+        remaining -= CPU_CELL_SIZE;
 
-        cursor    += sizeof(value);
-        remaining -= sizeof(value);
+        double d = 0.0; memcpy(&d, &c.u64, sizeof(d));
 
         int rc = snprintf(out + written,
                           (written < out_size) ? out_size - written : 0,
-                          "%s%08X",
+                          "%s0x%016" PRIX64 "/%" PRId64 "/%.6g",
                           (idx == 0) ? "" : " ",
-                          (unsigned int)value);
-        if (rc < 0)
-            break;
+                          (uint64_t)c.u64, (int64_t)c.i64, d);
+        if (rc < 0) break;
 
         written += (size_t)rc;
-        if (written >= out_size)
-        {
+        if (written >= out_size) {
             out[out_size - 1] = '\0';
             break;
         }
-    }
-}
+    }}
 
 static void format_assembly(const char* src,
                             char*  dst,
@@ -134,10 +132,9 @@ static void table_header(logging_level level)
 {
     table_border(level);
     log_printf(level,
-               "|  PC   | ASSEMBLY             | BYTECODE   | ARGS                 |");
+               "|  PC   | ASSEMBLY             | BYTECODE   | ARGS                          |");
     table_border(level);
 }
-
 static void table_footer(logging_level level)
 {
     table_border(level);

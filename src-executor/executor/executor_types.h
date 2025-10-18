@@ -10,41 +10,55 @@
 #include "../../libs/io/io.h"
 #include "../../libs/instruction_set/instruction_set.h"
 
-typedef int64_t reg_t;
+#define CPU_IR_COUNT 16
+#define CPU_FR_COUNT 8
 
-#define CPU_REGISTER_SIZE (sizeof(reg_t))
-#define CPU_REGISTER_COUNT 16
-
-#define RAM_SIZE  128
+#define RAM_SIZE      128
 
 #define SCREEN_WIDTH  256
 #define SCREEN_HEIGHT 64
-#define VRAM_SIZE     SCREEN_WIDTH * SCREEN_HEIGHT
+#define VRAM_SIZE     (SCREEN_WIDTH * SCREEN_HEIGHT)
 
+// Integer register
 typedef union
 {
-    reg_t value;
-    char  bytes[CPU_REGISTER_SIZE];
-} cpu_register_value_t;
+    i64_t value;
+    char  bytes[CPU_CELL_SIZE];
+} cpu_ir_value_t;
 
 typedef struct
 {
-    const char*          name;
-    cpu_register_value_t value;
-} cpu_register_t;
+    const char*    name;
+    cpu_ir_value_t value;
+} cpu_ir_t;
+
+// Float register
+typedef union
+{
+    f64_t value;
+    char  bytes[CPU_CELL_SIZE];
+} cpu_fr_value_t;
 
 typedef struct
 {
-    stack_id       code_stack;
-    stack_id       ret_stack;
-    char*          code;
-    size_t         code_size;
-    size_t         pc;
+    const char*    name;
+    cpu_fr_value_t value;
+} cpu_fr_t;
 
-    cpu_register_t x[CPU_REGISTER_COUNT];
+// CPU
+typedef struct
+{
+    stack_id code_stack;
+    stack_id ret_stack;
+    char*    code;
+    size_t   code_size;
+    size_t   pc;
 
-    long           ram[RAM_SIZE];
-    char           vram[VRAM_SIZE];
+    cpu_ir_t x[CPU_IR_COUNT];
+    cpu_fr_t fx[CPU_FR_COUNT];
+
+    cell64_t ram[RAM_SIZE];
+    char     vram[VRAM_SIZE];
 
     instruction_set_version_t binary_version;
 } cpu_t;

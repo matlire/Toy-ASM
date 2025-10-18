@@ -4,8 +4,18 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #define CODE_DUMP_BYTES_PER_LINE 16
+
+static inline void log_cell(logging_level level, const char* label, const cell64_t c)
+{
+    double d = 0.0;
+    memcpy(&d, &c.u64, sizeof(d));
+    log_printf(level, "%s[i=%" PRId64 " u=%" PRIu64 " f=%.17f hex=%016" PRIX64 "]",
+               (label ? label : ""),
+               (i64_t)c.i64, (u64_t)c.u64, d, (u64_t)c.u64);
+}
 
 static const char* safe_instruction_name(instruction_set opcode)
 {
@@ -29,22 +39,36 @@ void cpu_dump_registers(const cpu_t * const cpu, logging_level level)
                cpu->binary_version.minor);
 
     log_printf(level,
-               "+------+----------------+----------------------------------+");
+               "+------------------ INTEGER REGISTERS ------------------+");
     log_printf(level,
                "| idx  | name           | value (dec / hex)                |");
     log_printf(level,
                "+------+----------------+----------------------------------+");
 
-    for (size_t i = 0; i < CPU_REGISTER_COUNT; ++i)
+    for (size_t i = 0; i < CPU_IR_COUNT; ++i)
     {
-        const cpu_register_t* reg = &cpu->x[i];
-        long value = reg->value.value;
-        log_printf(level,
-                   "| %4zu | %-14s | %11ld / 0x%016lx |",
-                   i,
-                   reg->name ? reg->name : "x?",
-                   value,
-                   (unsigned long)value);
+        const cpu_ir_t* reg = &cpu->x[i];
+        char row_hdr[64] = { 0 };
+        snprintf(row_hdr, sizeof(row_hdr), "| %4zu | %-8s | ", i, reg->name ? reg->name : "x?");
+        log_printf(level, "%s", row_hdr);
+        log_cell(level, "    ", (cell64_t){ .i64 = reg->value.value });
+    }
+
+    log_printf(level, "+-------------------------------------------------------+");
+
+    log_printf(level, "+------------------- FLOAT REGISTERS -------------------+");
+    log_printf(level, "| idx  | name     | value                                |");
+    log_printf(level, "+------+----------+--------------------------------------+");
+    
+    for (size_t i = 0; i < CPU_FR_COUNT; ++i)
+    {
+        const cpu_fr_t* reg = &cpu->fx[i];
+        char row_hdr[64] = { 0 };
+        snprintf(row_hdr, sizeof(row_hdr), "| %4zu | %-8s | ", i, reg->name ? reg->name : "fx?");
+        log_printf(level, "%s", row_hdr);
+
+        cell64_t c; c.f64 = reg->value.value;
+        log_cell(level, "    ", c);
     }
 
     log_printf(level,
@@ -85,27 +109,20 @@ void cpu_dump_ram(const cpu_t * const cpu, logging_level level)
         return;
     }
 
-    log_printf(level, "RAM dump (size=%zu):", (size_t)RAM_SIZE);
+    log_printf(level, "RAM dump (cells=%zu):", (size_t)RAM_SIZE);
 
-    const int step = 8;
-
+    const size_t step = 4;
     for (size_t base = 0; base < RAM_SIZE; base += step)
     {
-        char   line[RAM_SIZE] = { 0 };
-        size_t len            = (size_t)snprintf(line, sizeof(line), "  0x%04zx:", base);
+        log_printf(level, "  [0x%04zx..0x%04zx]", base,
+                   ((base + step) > RAM_SIZE ? RAM_SIZE : base + step) - 1);
 
-        for (size_t offset = 0; offset < step && (base + offset) < RAM_SIZE; ++offset)
+        for (size_t off = 0; off < step && (base + off) < RAM_SIZE; ++off)
         {
-            if (len < sizeof(line))
-            {
-                len += (size_t)snprintf(line + len,
-                                        sizeof(line) - len,
-                                        " %4ld",
-                                        cpu->ram[base + offset]);
-            }
+            char lbl[32] = { 0 };
+            snprintf(lbl, sizeof(lbl), "    ram[%zu]=", base + off);
+            log_cell(level, lbl, cpu->ram[base + off]);
         }
-
-        log_printf(level, "%s", line);
     }
 }
 
@@ -240,7 +257,7 @@ void cpu_dump_state(const cpu_t * const cpu, logging_level level)
 void cpu_dump_step(const cpu_t * const cpu,
                    size_t              pc_before,
                    instruction_set     opcode,
-                   const long*         args,
+                   const cell64_t*     args,
                    size_t              arg_count,
                    logging_level       level)
 {
@@ -260,12 +277,9 @@ void cpu_dump_step(const cpu_t * const cpu,
 
     for (size_t i = 0; i < arg_count; ++i)
     {
-        long value = args ? args[i] : 0;
-        log_printf(level,
-                   "       arg[%zu] = %ld (0x%08lx)",
-                   i,
-                   value,
-                   (unsigned long)value);
+        char lbl[64] = { 0 };
+        snprintf(lbl, sizeof(lbl), "       arg[%zu] = ", i);
+        log_cell(level, lbl, args ? args[i] : (cell64_t){ .u64 = 0 });
     }
 }
 

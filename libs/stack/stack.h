@@ -247,6 +247,4 @@ err_t stack_verify(const stack_id stack);
         }                                  \
     } while (0)
 
-
-
 #endif
