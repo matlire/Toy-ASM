@@ -22,6 +22,7 @@ typedef struct
     bool            capturing;
     asm_dump_line_t lines[ASM_DUMP_MAX_LINES];
     size_t          line_count;
+    bool            overflow_reported;
 } asm_pass_dump_t;
 
 static asm_pass_dump_t g_pass_dumps[2] = { 0 };
@@ -34,6 +35,7 @@ static void asm_dump_reset_pass(int pass)
     g_pass_dumps[pass].capturing  = false;
     g_pass_dumps[pass].line_count = 0;
     memset(g_pass_dumps[pass].lines, 0, sizeof(g_pass_dumps[pass].lines));
+    g_pass_dumps[pass].overflow_reported = false;
 }
 
 static const char* pass_title(int pass)
@@ -162,12 +164,13 @@ void asm_dump_pass_line(const asm_t*         as,
         dump->capturing = true;
     }
 
-    if (dump->line_count >= ASM_DUMP_MAX_LINES)
+    if (dump->line_count >= ASM_DUMP_MAX_LINES && !dump->overflow_reported)
     {
-        log_printf(level,
+        log_printf(WARN,
                    "[asm-dump] pass %d exceeded max tracked lines (%d)",
                    pass,
                    ASM_DUMP_MAX_LINES);
+        dump->overflow_reported = true;
         return;
     }
 
