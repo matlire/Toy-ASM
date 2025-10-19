@@ -75,12 +75,16 @@ static void format_args(const unsigned char* data,
 
     out[0] = '\0';
 
-    if (!data || size <= 2)
+    if (!data || size <= 1)
         return;
 
-    unsigned char expected      = data[1];
-    const unsigned char* cursor = data + 2;
-    size_t remaining            = size - 2;
+    unsigned char opcode      = data[0];
+    const instruction_t* meta = instruction_get((instruction_set)opcode);
+    if (!meta) return;
+
+    size_t expected             = meta->expected_args;
+    const unsigned char* cursor = data + 1;
+    size_t remaining            = size - 1;
     size_t written              = 0;
 
     for (unsigned int idx = 0; idx < expected && remaining >= CPU_CELL_SIZE; ++idx)

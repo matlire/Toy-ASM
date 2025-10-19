@@ -253,7 +253,7 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
     err_t exec_rc = OK;
     while (cpu->pc < cpu->code_size)
     {
-        if (!CHECK(ERROR, cpu->pc + 2 <= cpu->code_size,
+        if (!CHECK(ERROR, cpu->pc + 1 <= cpu->code_size,
                    "exec_loop: truncated instruction header at pc=%zu", cpu->pc))
         {
             exec_rc = ERR_BAD_ARG;
@@ -262,54 +262,43 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
 
         size_t pc_before = cpu->pc;
 
-        unsigned char opcode_stack      = (unsigned char)cpu->code[cpu->pc++];
-        unsigned char encode_stackd_arg = (unsigned char)cpu->code[cpu->pc++];
-
-        instruction_set instruction = (instruction_set)opcode_stack;
+        unsigned char   opcode      = (unsigned char)cpu->code[cpu->pc++];
+        instruction_set instruction = (instruction_set)opcode;
         const instruction_t* meta   = instruction_get(instruction);
 
         if (!CHECK(ERROR, meta != NULL,
-                   "exec_loop: metadata missing for opcode_stack %u", opcode_stack))
+                   "exec_loop: metadata missing for opcode_stack %u", opcode))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
-        if (!CHECK(ERROR, encode_stackd_arg <= MAX_INSTRUCTION_ARGS,
-                   "exec_loop: encode_stackd arg count %u exceeds max", encode_stackd_arg))
-        {
-            exec_rc = ERR_BAD_ARG;
-            break;
-        }
+        const size_t argc = meta->expected_args;
+        if (!CHECK(ERROR, argc <= MAX_INSTRUCTION_ARGS, "exec_loop: argc %zu exceeds max", argc))
+            return ERR_CORRUPT;
+        
+        size_t required   = argc * CPU_CELL_SIZE;
 
-        if (!CHECK(ERROR, meta->expected_args == encode_stackd_arg,
-                   "exec_loop: arg count mismatch for opcode_stack %u", opcode_stack))
-        {
-            exec_rc = ERR_BAD_ARG;
-            break;
-        }
-
-        size_t required = (size_t)encode_stackd_arg * CPU_CELL_SIZE;
         if (!CHECK(ERROR, cpu->pc + required <= cpu->code_size,
-                   "exec_loop: truncated arguments for opcode_stack %u", opcode_stack))
+                   "exec_loop: truncated arguments for opcode_stack %u", opcode))
         {
             exec_rc = ERR_BAD_ARG;
             break;
         }
 
         cell64_t args[MAX_INSTRUCTION_ARGS] = { 0 };
-        for (size_t arg_idx = 0; arg_idx < encode_stackd_arg; ++arg_idx)
+        for (size_t arg_idx = 0; arg_idx < argc; ++arg_idx)
         {
             memcpy(&args[arg_idx], cpu->code + cpu->pc, CPU_CELL_SIZE);
             cpu->pc += CPU_CELL_SIZE;
         } 
 
-        exec_rc = switcher(cpu, instruction, args, encode_stackd_arg);
+        exec_rc = switcher(cpu, instruction, args, argc);
 
         if (level == DEBUG && (instruction == CALL || instruction == RET))
         {
             cpu_dump_state(cpu, level);
-            cpu_dump_step (cpu, pc_before, instruction, args, encode_stackd_arg, level);
+            cpu_dump_step (cpu, pc_before, instruction, args, argc, level);
         }
 
         if (exec_rc != OK) break;

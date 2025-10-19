@@ -132,6 +132,8 @@ err_t stack_top (stack_id stack, void* elem);
 
 err_t stack_print(const stack_id stack);
 
+size_t stack_size(const stack_id stack);
+
 err_t stack_dump (logging_level level, const stack_id stack, err_t code, const char* comment);
 #define STACK_DUMP(level, st, code, comment) \
     stack_dump((level), (st), (code), (comment))

@@ -96,6 +96,18 @@ err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
     return stack_push(cpu->code_stack, &out);                                 \
 }
 
+#define DEF_UNOP_U64(NAME, EXPR)                                              \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t value = { 0 };                                                   \
+    err_t rc = stack_pop(cpu->code_stack, &value);                            \
+    if (rc != OK) return rc;                                                  \
+    cell64_t out = { 0 };                                                     \
+    out.u64 = (EXPR);                                                         \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
 #define DEF_UNOP_F64(NAME, EXPR)                                              \
 err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
     (void)args; (void)argc;                                                   \
@@ -119,6 +131,19 @@ err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
     out.i64 = lhs.i64 OP rhs.i64;                                             \
     return stack_push(cpu->code_stack, &out);                                 \
 }
+
+#define DEF_BINOP_U64(NAME, OP, DIV0)                                         \
+err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
+    (void)args; (void)argc;                                                   \
+    if (!cpu) return ERR_BAD_ARG;                                             \
+    cell64_t rhs = { 0 }, lhs = { 0 };                                        \
+    if (exec_pop_operands(cpu, &lhs, &rhs) != OK) return ERR_CORRUPT;         \
+    if (DIV0 && rhs.u64 == 0) return ERR_BAD_ARG;                             \
+    cell64_t out = { 0 };                                                     \
+    out.u64 = lhs.u64 OP rhs.u64;                                             \
+    return stack_push(cpu->code_stack, &out);                                 \
+}
+
 
 #define DEF_BINOP_F64(NAME, OP, DIV0)                                         \
 err_t exec_##NAME(cpu_t* cpu, const cell64_t* args, const size_t argc) {      \
@@ -151,6 +176,54 @@ DEF_UNOP_F64(CEIL,  ceil(value.f64));
 DEF_UNOP_F64(ROUND, round(value.f64));
 DEF_UNOP_F64(ITOF,  (f64_t)(value.i64));
 DEF_UNOP_I64(FTOI,  (i64_t)(floor(value.f64)));
+
+DEF_BINOP_U64(AND, &, 0);
+DEF_BINOP_U64(OR,  |, 0);
+DEF_BINOP_U64(XOR, ^, 0);
+DEF_UNOP_U64(NOT, ~value.u64);
+
+err_t exec_SHL(cpu_t* cpu, const cell64_t* args, const size_t argc)
+{
+    (void)args; (void)argc;
+    if (!cpu) return ERR_BAD_ARG;
+
+    cell64_t rhs = { 0 };
+    cell64_t lhs = { 0 };
+    if (exec_pop_operands(cpu, &lhs, &rhs) != OK)
+        return ERR_CORRUPT;
+
+    u64_t s   = ((uint64_t)rhs.u64) & 63u;
+    u64_t res = ((uint64_t)lhs.u64) << s;
+
+    cell64_t out = { 0 };
+    out.u64      = res;
+
+    return stack_push(cpu->code_stack, &out);
+}
+
+err_t exec_SHR(cpu_t* cpu, const cell64_t* args, const size_t argc)
+{
+    (void)args; (void)argc;
+    if (!cpu) return ERR_BAD_ARG;
+
+    cell64_t rhs = { 0 };
+    cell64_t lhs = { 0 };
+    if (exec_pop_operands(cpu, &lhs, &rhs) != OK)
+        return ERR_CORRUPT;
+
+    uint64_t s    = rhs.u64 & 63u;
+    u64_t ux      = lhs.u64;
+    u64_t shifted = (s ? (ux >> s) : ux);
+
+    if ((lhs.i64 < 0) && (s != 0)) {
+        shifted |= (~0ULL) << (64u - s);
+    }
+
+    cell64_t out = { 0 };
+    out.u64 = shifted;
+
+    return stack_push(cpu->code_stack, &out);
+}
 
 err_t exec_PUSHR(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
@@ -267,7 +340,11 @@ err_t exec_CALL(cpu_t * const cpu, const cell64_t * const args, const size_t arg
 
     err_t rc = stack_push(cpu->ret_stack, &retpc);
     if (rc != OK) return rc;
-    
+
+    cell64_t saved_depth = s_ci64((i64_t)stack_size(cpu->code_stack));
+    rc                   = stack_push(cpu->ret_stack, &saved_depth);
+    if (rc != OK) return rc;
+
     cpu->pc = (size_t)g_ci64(args[0]);
 
     return OK;}
@@ -276,6 +353,16 @@ err_t exec_RET(cpu_t * const cpu, const cell64_t * const args, const size_t argc
 {
     (void)args;
     (void)argc;
+
+    cell64_t expected_depth = { 0 };
+    err_t rc_fd             = stack_pop(cpu->ret_stack, &expected_depth);
+    if (rc_fd != OK) return rc_fd;
+
+    size_t curr_depth = stack_size(cpu->code_stack);
+    if (!CHECK(ERROR, curr_depth == (size_t)g_ci64(expected_depth),
+               "RET: stack depth mismatch (curr=%zu, expected=%" PRId64 ")",
+               curr_depth, g_ci64(expected_depth)))
+        return ERR_CORRUPT;
     
     cell64_t r = { 0 };
     err_t rc   = stack_pop(cpu->ret_stack, &r);

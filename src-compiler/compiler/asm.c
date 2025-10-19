@@ -446,11 +446,11 @@ static err_t parse_argument(asm_t*       as,
     return OK;
 }
 
-static err_t encode_instruction(asm_t* as,
-                                const char* line,
-                                size_t iter,
+static err_t encode_instruction(asm_t*         as,
+                                const char*    line,
+                                size_t         iter,
                                 unsigned char* buffer,
-                                size_t* out_size)
+                                size_t*        out_size)
 {
     if (!CHECK(ERROR, line != NULL && buffer != NULL && out_size != NULL,
                "encode_instruction: invalid arguments"))
@@ -502,7 +502,6 @@ static err_t encode_instruction(asm_t* as,
 
     size_t total    = 0;
     buffer[total++] = (unsigned char)meta->id;
-    buffer[total++] = (unsigned char)meta->expected_args;
 
     for (size_t arg_idx = 0; arg_idx < meta->expected_args; ++arg_idx)
     {
@@ -510,7 +509,7 @@ static err_t encode_instruction(asm_t* as,
         int is_fx      = 0;
         int is_reg     = 0;
         int was_float  = 0;
-        err_t rc = parse_argument(as, &cursor, iter, &value, &is_fx, &is_reg, &was_float);
+        err_t rc       = parse_argument(as, &cursor, iter, &value, &is_fx, &is_reg, &was_float);
 
         if (!CHECK(ERROR, rc == OK, "encode_instruction: failed to parse argument"))
             return rc;
@@ -600,7 +599,7 @@ static size_t process_source(asm_t* as, int pass, FILE* out)
         }
 
         unsigned char encoded[MAX_LINE_LEN] = { 0 };
-        size_t encoded_len = 0;
+        size_t        encoded_len           = 0;
 
         if (!CHECK(ERROR, encode_instruction(as, trimmed, pass, encoded, &encoded_len) == OK,
                    "process_source: failed to encode instruction"))

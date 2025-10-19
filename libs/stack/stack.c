@@ -217,6 +217,19 @@ err_t stack_dtor(stack_id stack)
     return OK;
 }
 
+size_t stack_size(const stack_id stack)
+{
+    STACK_ERR_CHECK(ERROR, id_in_range(stack), stack, ERR_BAD_ARG,
+                    "stack_size: stack_id incorrect");
+
+    stack_t* st = get_stack(stack);
+    
+    STACK_ERR_CHECK(ERROR, st != NULL, stack, ERR_CORRUPT,
+                    "stack_size: st == NULL");
+    
+    return st->size;
+}
+
 err_t stack_push(stack_id stack, const void* elem)
 {
     STACK_ERR_CHECK(ERROR, id_in_range(stack), stack, ERR_BAD_ARG,

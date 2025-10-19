@@ -1,6 +1,9 @@
 #ifndef INSTRUCTIONS_LIST
 #define INSTRUCTIONS_LIST
 
+#define INSTRUCTION_SET_VERSION_MAJOR 3U
+#define INSTRUCTION_SET_VERSION_MINOR 0U
+
 #define INSTRUCTION_LIST(X)        \
     X(NOP,    "NOP",    0,   0)    \
                                    \
@@ -39,6 +42,13 @@
     X(PUSHVM, "PUSHVM", 1,  37)    \
     X(POPVM,  "POPVM",  1,  38)    \
     X(CLEANVM,"CLEANVM",0,  39)    \
+                                   \
+    X(NOT,    "NOT",    0,  42)    \
+    X(OR,     "OR",     0,  43)    \
+    X(AND,    "AND",    0,  44)    \
+    X(XOR,    "XOR",    0,  45)    \
+    X(SHL,    "SHL",    0,  46)    \
+    X(SHR,    "SHR",    0,  47)    \
                                    \
     X(FADD,   "FADD",   0,  64)    \
     X(FSUB,   "FSUB",   0,  65)    \
