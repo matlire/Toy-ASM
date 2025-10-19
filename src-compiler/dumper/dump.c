@@ -164,13 +164,16 @@ void asm_dump_pass_line(const asm_t*         as,
         dump->capturing = true;
     }
 
-    if (dump->line_count >= ASM_DUMP_MAX_LINES && !dump->overflow_reported)
+    if (dump->line_count >= ASM_DUMP_MAX_LINES)
     {
-        log_printf(WARN,
+        if (!dump->overflow_reported)
+        {
+            log_printf(level,
                    "[asm-dump] pass %d exceeded max tracked lines (%d)",
                    pass,
                    ASM_DUMP_MAX_LINES);
-        dump->overflow_reported = true;
+            dump->overflow_reported = true;
+        }
         return;
     }
 

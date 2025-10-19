@@ -54,8 +54,8 @@ err_t  load_op_data    (operational_data_t * const op_data,
                         const char * const IN_FILE, const char * const OUT_FILE);
 size_t parse_file      (operational_data_t * const op_data);
 size_t gen_write_header(operational_data_t * const op_data, instruction_binary_header_t* header);
-size_t asm_first_pass  (asm_t* as);
-size_t asm_second_pass (asm_t* as, FILE* out);
+size_t asm_first_pass  (asm_t* as, logging_level level);
+size_t asm_second_pass (asm_t* as, FILE* out, logging_level level);
 size_t update_header   (operational_data_t * const op_data,
                         instruction_binary_header_t* header, const size_t body_written);
 
