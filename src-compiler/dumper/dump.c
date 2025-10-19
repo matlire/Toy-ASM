@@ -193,6 +193,8 @@ void asm_dump_label_table(const asm_t* as, logging_level level)
         return;
     }
 
+    if (level != DEBUG) return;
+
     log_printf(level, "Labels:");
 
     if (as->label_count == 0)

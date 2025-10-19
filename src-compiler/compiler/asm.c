@@ -531,7 +531,7 @@ static err_t encode_instruction(asm_t* as,
 
         memcpy(buffer + total, &value, CPU_CELL_SIZE);
         
-        if (opcode == FPUSH && !is_reg && !was_float) {
+        if (opcode == PUSH && !is_reg && !was_float) {
             value.f64 = (f64_t)value.i64;
         }
         
@@ -668,7 +668,7 @@ void asm_destroy(asm_t* as)
     memset(as, 0, sizeof(*as));
 }
 
-size_t asm_first_pass(asm_t* as)
+size_t asm_first_pass(asm_t* as, logging_level level)
 {
     size_t result = process_source(as, 0, NULL);
     if (result == SIZE_MAX)
@@ -676,14 +676,14 @@ size_t asm_first_pass(asm_t* as)
         log_printf(ERROR, "asm_first_pass: failed to parse source");
         printf("ASM_FIRST_PASS: FAILED TO PARSE SOURCE!\n");
     }
-    else
+    else if (level == DEBUG)
     {
         asm_dump_pass_summary(as, 0, result, DEBUG);
     }
     return result;
 }
 
-size_t asm_second_pass(asm_t* as, FILE* out)
+size_t asm_second_pass(asm_t* as, FILE* out, logging_level level)
 {
     size_t result = process_source(as, 1, out);
     if (result == SIZE_MAX)
@@ -691,7 +691,7 @@ size_t asm_second_pass(asm_t* as, FILE* out)
         log_printf(ERROR, "asm_second_pass: failed to emit program");
         printf("ASM_SECOND_PASS: FAILED TO EMIT PROGRAM!\n");
     }
-    else
+    else if (level == DEBUG)
     {
         asm_dump_pass_summary(as, 1, result, DEBUG);
     }

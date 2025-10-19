@@ -57,4 +57,9 @@ dkms.conf
 log.log
 package-lock.json
 *.bin
-
+meowx1.asm
+meowx1.bin
+meowx600.asm
+meowsx600.bin
+*.jpg
+*.mp4

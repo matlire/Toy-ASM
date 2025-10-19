@@ -11,7 +11,7 @@
 #include "../../libs/instruction_set/instruction_set.h"
 
 #define CPU_IR_COUNT 16
-#define CPU_FR_COUNT 8
+#define CPU_FR_COUNT 16
 
 #define RAM_SIZE      128
 

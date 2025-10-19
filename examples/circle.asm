@@ -1,77 +1,78 @@
-PUSH 27
-POPR x8 ; radius
+PUSH 32.0
+FPOPR fx0        ; r
 
 PUSH 64
-POPR x0 ; height
-
+POPR x0          ; height
 PUSH 256
-POPR x10 ; width
+POPR x1          ; width
 
-PUSHR x10
+; centers
+PUSHR x1
 PUSH 2
 DIV
-POPR x1 ; x0, width / 2
+POPR x6          ; cx = width / 2
 
 PUSHR x0
 PUSH 2
 DIV
-POPR x2 ; y0, height / 2
+POPR x2          ; cy = height / 2
 
-PUSH 5
-POPR x12 ; SY, vertical weight for aspect correction 
+; aspect ratio correction
+PUSH 2.6
+FPOPR fx1       ; a
 
+; init iterators, vram ptr
 PUSH 0
-POPR x3 ; row
+POPR x3          ; row
 PUSH 0
-POPR x4 ; col
-
+POPR x4          ; col
 PUSH 0
-POPR x5 ; vram address
+POPR x5          ; vram ptr
 
 CALL :loop
 DRAW
-DUMP
 HLT
 
 :loop
-    ; Calculate x
+    ; dx = float(col - cx)
     PUSHR x4
-    PUSHR x1
+    PUSHR x6
     SUB
-    POPR x6
-    PUSHR x6
-    PUSHR x6
-    CALL :mod
-    POPR x6 ; x
+    ITOF
+    FPOPR fx2
 
-    ;Calculate y
+    ; dy = float(row - cy)
     PUSHR x3
     PUSHR x2
-    SUB 
-    POPR x7
-    PUSHR x7
-    PUSHR x7
-    CALL :mod
-    POPR x7 ; y
+    SUB
+    ITOF
+    FPOPR fx3
 
-    ; Check if x^2 + SY*y^2 < r^2  (aspect-corrected)
-    PUSHR x6
-    SQ
-    PUSHR x7
-    SQ
-    PUSHR x12
-    MUL
-    ADD
-    PUSHR x8
-    SQ
+    ; dist^2 = dx^2 + (AY*dy)^2
+    FPUSHR fx2
+    FSQ                          ; dx^2
+    FPUSHR fx3
+    FPUSHR fx1
+    FMUL                         ; AY*dy
+    FSQ                          ; (AY*dy)^2
+    FADD                         ; dist^2
+
+    FPUSHR fx0
+    FSQ                          ; r^2
+
+    FSUB                         ; dist2 - r2
+    FLOOR
+    FTOI
+    PUSH 0
     JAE :not_in_r
-    PUSHR x5
-    POPR x9
-    PUSH '#'
-    POPVM [x9]
-    :not_in_r
 
-    ; Increment vram index
+    PUSHR x5
+    POPR x7
+    PUSH '#'
+    POPVM [x7]
+
+:not_in_r
+    ; vram++
     PUSHR x5
     PUSH 1
     ADD
@@ -79,7 +80,7 @@ HLT
 
     ; col++
     PUSHR x4
-    PUSHR x10
+    PUSHR x1
     PUSH 1
     SUB
     JB :inc_col
@@ -92,23 +93,15 @@ HLT
     ADD
     POPR x3
 
-    :inc_col
+:inc_col
     PUSHR x4
     PUSH 1
     ADD
     POPR x4
-    
+
     ; loop while row < height
     PUSHR x0
     PUSHR x3
     JA :loop
-    RET
-
-:mod
-    PUSH 0
-    JAE :mod_ready
-    PUSH -1
-    MUL
-    :mod_ready
     RET
 

@@ -53,22 +53,7 @@ err_t exec_PUSH(cpu_t * const cpu, const cell64_t * const args, const size_t arg
     return stack_push(cpu->code_stack, &args[0]);
 }
 
-err_t exec_FPUSH(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
-{
-    if (argc < 1 || !args) return ERR_BAD_ARG;
-    return stack_push(cpu->code_stack, &args[0]);
-}
-
 err_t exec_POP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
-{
-    (void)args;
-    (void)argc;
-
-    cell64_t discarded = { 0 };
-    return stack_pop(cpu->code_stack, &discarded);
-}
-
-err_t exec_FPOP(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;

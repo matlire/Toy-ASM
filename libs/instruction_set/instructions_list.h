@@ -38,7 +38,7 @@
     X(POPM,   "POPM",   1,  36)    \
     X(PUSHVM, "PUSHVM", 1,  37)    \
     X(POPVM,  "POPVM",  1,  38)    \
-    X(CLEANVM,"CLEANVM",1,  39)    \
+    X(CLEANVM,"CLEANVM",0,  39)    \
                                    \
     X(FADD,   "FADD",   0,  64)    \
     X(FSUB,   "FSUB",   0,  65)    \
@@ -51,8 +51,6 @@
     X(FOUT,   "FOUT",   0,  71)    \
     X(FTOPOUT,"FTOPOUT",0,  72)    \
                                    \
-    X(FPUSH,  "FPUSH",  1,  74)    \
-    X(FPOP,   "FPOP",   0,  75)    \
     X(FPUSHR, "FPUSHR", 1,  76)    \
     X(FPOPR,  "FPOPR",  1,  77)    \
                                    \

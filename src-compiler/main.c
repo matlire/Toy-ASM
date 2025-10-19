@@ -8,12 +8,14 @@
 const char* IN_FILE  = NULL;
 const char* OUT_FILE = NULL;
 
+logging_level level = INFO;
+
 void on_terminate();
 
 int main(const int argc, char* const argv[])
 {
     atexit(on_terminate);
-    init_logging("log.log", DEBUG);
+    init_logging("log.log", level);
 
     int exit_code = 0;
  
@@ -72,7 +74,7 @@ int main(const int argc, char* const argv[])
     /*
         First asm pass (generate labels)
     */
-    size_t first_pass_bytes = asm_first_pass(&assembler);
+    size_t first_pass_bytes = asm_first_pass(&assembler, level);
 
     if (!CHECK(ERROR, first_pass_bytes != SIZE_MAX,
             "main: first pass failed"))
@@ -85,7 +87,7 @@ int main(const int argc, char* const argv[])
     /*
         Second asm pass (byte code generation)
     */
-    size_t body_written = asm_second_pass(&assembler, op_data.out_file);
+    size_t body_written = asm_second_pass(&assembler, op_data.out_file, level);
     
     if (!CHECK(ERROR, body_written != SIZE_MAX,
                 "main: second pass failed"))
