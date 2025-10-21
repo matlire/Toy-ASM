@@ -5,6 +5,7 @@
 
 #include "../../dumper/dump.h"
 #include "../executor_types.h"
+#include <time.h>
 
 #include "../../../libs/instruction_set/instruction_set.h"
 

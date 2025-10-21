@@ -13,6 +13,59 @@ static const instruction_t INSTRUCTIONS[INSTRUCTION_TABLE_CAPACITY] =
 #undef INSTRUCTION_INIT
 };
 
+static inline unsigned long instruction_hash(const unsigned char *str) {
+    unsigned long hash = 0ul;
+    char          c    = 0;
+
+    while ((c = *str++) != '\0') {
+        hash = (unsigned long)c + (hash << 6) + (hash << 16) - hash;
+    }
+
+    return hash;
+}
+
+typedef struct {
+    unsigned long   hash;
+    instruction_set id;
+} instr_hash_t;
+
+static instr_hash_t INSTR_HASH_TABLE[INSTRUCTION_TABLE_CAPACITY] = { 0 };
+static int          INSTR_HASHES_BUILT                           = 0;
+
+static void instruction_build_hashes_once(void)
+{
+    if (INSTR_HASHES_BUILT) return;
+
+    for (size_t i = 0; i < INSTRUCTION_TABLE_CAPACITY; ++i) {
+        const instruction_t* meta = &INSTRUCTIONS[i];
+
+        if (meta && meta->name) {
+            INSTR_HASH_TABLE[i].hash = instruction_hash((const unsigned char*)meta->name);
+            INSTR_HASH_TABLE[i].id   = meta->id;
+        } else {
+            INSTR_HASH_TABLE[i].hash = 0;
+            INSTR_HASH_TABLE[i].id   = UNDEF;
+        }
+    }
+    INSTR_HASHES_BUILT = 1;
+}
+
+static instruction_set instruction_lookup_hash(const unsigned char* name)
+{
+    if (!name) return UNDEF;
+
+    instruction_build_hashes_once();
+
+    const unsigned long hash = instruction_hash(name);
+
+    for (size_t i = 0; i < INSTRUCTION_TABLE_CAPACITY; ++i)
+    {
+        if (INSTR_HASH_TABLE[i].hash == hash)
+            return INSTR_HASH_TABLE[i].id;
+    }
+    return UNDEF;
+}
+
 static int instruction_id_is_valid(const instruction_set id)
 {
     return id >= 0 && id < INSTRUCTION_TABLE_CAPACITY;
@@ -54,11 +107,7 @@ unsigned int instruction_set_version_code(void)
 instruction_set map_instruction(const char* str)
 {
     if (!str) return UNDEF;
-#define INSTRUCTION_TRY(symbol, label, args, opcode) \
-    if (strcmp(label, str) == 0) return symbol;
-    INSTRUCTION_LIST(INSTRUCTION_TRY)
-#undef INSTRUCTION_TRY
-    return UNDEF;
+    return instruction_lookup_hash((const unsigned char*)str);
 }
 
 size_t expect_arg(const instruction_set instruction)
