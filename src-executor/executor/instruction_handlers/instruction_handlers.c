@@ -430,10 +430,37 @@ err_t exec_POPVM(cpu_t * const cpu, const cell64_t * const args, const size_t ar
     return rc;
 }
 
+static const  long     target_frame_ns = 33333333L;
+static struct timespec g_last_draw_ts  = {0, 0};
+// POSIX time stamp with nanoseconds, tv_sec - whole seconds, tv_nsec - additional nanoseconds
+
+static inline long ts_diff_ns(const struct timespec* a, const struct timespec* b)
+{
+    return (long)((a->tv_sec - b->tv_sec) * 1000000000LL + (a->tv_nsec - b->tv_nsec));
+}
+
+static inline void sleep_ns(long ns)
+{
+    if (ns <= 0) return;
+    struct timespec req = { .tv_sec = ns / 1000000000L, .tv_nsec = ns % 1000000000L };
+    while (nanosleep(&req, &req) == -1 && errno == EINTR) {}
+}
+
 err_t exec_DRAW(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;
     (void)argc;
+
+    struct timespec now = { 0 };
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    if (g_last_draw_ts.tv_sec > 0 || g_last_draw_ts.tv_nsec > 0)
+    {
+        long elapsed_ns = ts_diff_ns(&now, &g_last_draw_ts);
+        long remaining  = target_frame_ns - elapsed_ns;
+        if (remaining > 0) sleep_ns(remaining);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &g_last_draw_ts);
 
     clear();
 
@@ -462,7 +489,6 @@ err_t exec_DRAW(cpu_t * const cpu, const cell64_t * const args, const size_t arg
 
     return OK;
 }
-
 err_t exec_CLEANVM(cpu_t * const cpu, const cell64_t * const args, const size_t argc)
 {
     (void)args;

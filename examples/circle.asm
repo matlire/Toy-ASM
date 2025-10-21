@@ -1,4 +1,4 @@
-PUSH 32.0
+PUSH 28.0
 FPOPR fx0        ; r
 
 PUSH 32

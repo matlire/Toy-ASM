@@ -227,21 +227,6 @@ static err_t parse_binary_header(char** cursor,
     return OK;
 }
 
-static err_t switcher(cpu_t* cpu,
-                      const instruction_set instruction,
-                      const cell64_t* args, size_t arg_count)
-{ 
-    if (!CHECK(ERROR,
-               instruction >= 0 && instruction < INSTRUCTION_TABLE_CAPACITY,
-               "switcher: invalid instruction id %d", instruction))
-        return ERR_BAD_ARG;
-   
-    instruction_handler_t h = i_handlers[instruction];
-    if (!h) return ERR_BAD_ARG;
-    
-    return h(cpu, args, arg_count);
-}
-
 static err_t exec_loop(cpu_t* cpu, logging_level level)
 {
     if (!CHECK(ERROR, cpu != NULL, "exec_loop: cpu pointer is NULL"))
@@ -277,7 +262,7 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
         if (!CHECK(ERROR, argc <= MAX_INSTRUCTION_ARGS, "exec_loop: argc %zu exceeds max", argc))
             return ERR_CORRUPT;
         
-        size_t required   = argc * CPU_CELL_SIZE;
+        size_t required  = argc * CPU_CELL_SIZE;
 
         if (!CHECK(ERROR, cpu->pc + required <= cpu->code_size,
                    "exec_loop: truncated arguments for opcode_stack %u", opcode))
@@ -293,7 +278,10 @@ static err_t exec_loop(cpu_t* cpu, logging_level level)
             cpu->pc += CPU_CELL_SIZE;
         } 
 
-        exec_rc = switcher(cpu, instruction, args, argc);
+        instruction_handler_t h = i_handlers[instruction];
+        if (!h) return ERR_BAD_ARG;
+    
+        exec_rc = h(cpu, args, argc);
 
         if (level == DEBUG && (instruction == CALL || instruction == RET))
         {
