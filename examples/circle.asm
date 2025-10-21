@@ -1,9 +1,9 @@
 PUSH 32.0
 FPOPR fx0        ; r
 
-PUSH 64
+PUSH 32
 POPR x0          ; height
-PUSH 256
+PUSH 128
 POPR x1          ; width
 
 ; centers
@@ -18,7 +18,7 @@ DIV
 POPR x2          ; cy = height / 2
 
 ; aspect ratio correction
-PUSH 2.6
+PUSH 2.4
 FPOPR fx1       ; a
 
 ; init iterators, vram ptr

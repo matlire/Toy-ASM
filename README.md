@@ -48,8 +48,8 @@ Also you can translate image/video to `.asm` that can be compiled and shown on t
 
 ```bash
 python gen/visual2tasm.py --in "examples/media/1.jpg" --out "examples/meowx1.asm" \
-                        --threshold 140 --mode levels                             \
-                        --ramp "@#*+=-:. " --gamma 1.2 --skip-off
+                        --mode levels                             \
+                        --ramp "@#*+=-:. " --gamma 1.2
 ```
 
 ### Video
@@ -59,7 +59,7 @@ python gen/visual2tasm.py --in "examples/media/1.mp4" --out "examples/meowx600.a
                         --width 256 --height 64 --mode levels                       \
                         --ramp "@#*+=-:. " --gamma 1.2                              \
                         --emit-int --skip-off --no-comments                         \
-                        --no-delta --repeat 1 --delay-iters 10
+                        --no-delta
 ```
 
 ### Requirements
@@ -88,11 +88,7 @@ pip install opencv-python numpy
 --mode {binary,levels} (default binary)
 
 binary:
-  --threshold INT (0..255, default 127) : fixed threshold (ignored if --otsu)
-  --otsu                                : Otsu automatic threshold
-  --on  CH (default '#')                : char for black (ON) pixels
-  --off CH (default ' ')                : char for white (OFF) pixels
-
+  Light (' ')/Dark('#') symbol
 levels:
   --ramp STRING (default "@#*+=-:. ")   : darkest→lightest characters
   --gamma FLOAT (default 1.0)           : gamma correction (>1 → darker symbols)
@@ -102,37 +98,12 @@ levels:
 **Emission & Compression**  
 ```
 --emit-int               : always emit ASCII codes (PUSH 35). Safest.
---emit-char              : prefer char literals (PUSH '#'); fallback to int for ' and \
 --skip-off               : on full frames, skip the lightest symbol writes (assumes CLEANVM)
---skip-char CH           : explicit character to skip (overrides --skip-off)
---no-clear               : don’t emit CLEANVM (layer on existing VRAM)
---no-comments            : suppress header/row comments
---unroll INT (default 3) : inline short write runs without CALL :f
 ```
 
 **Video Sampling & Playback**  
 ```
---frame-step INT (default 1)       : keep every Nth source frame
---max-frames INT (default 0 = all) : cap total frames after sampling
-
-Deterministic speed:
-  --repeat INT (default 1)               : repeat each frame N times
-  --fps-target FLOAT (default 0 = off)   : choose integer repeat to ~match FPS
-  --delay-iters INT (default 0)          : busy-wait between frame calls
-
---loop    : loop playback (JMP :__start)
 --no-delta: disable delta mode; emit full frames always
-```
-
-**Diagnostics**
-```
---verbose : print backend, FPS, frame count, retry info to stderr
-```
-**Flag interactions**
-```
-If both --emit-int and --emit-char are set, --emit-int wins.
-In levels mode, --threshold is parsed but unused (kept for CLI compatibility).
---fps-target computes repeat ≈ round((input_fps / frame_step) / fps_target).
 ```
 
 ---

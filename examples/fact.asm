@@ -1,10 +1,10 @@
 IN
-POPR x0
 CALL :fact
 OUT
 HLT
 
 :fact
+    POPR x0
     PUSHR x0
     PUSH 1
     DUMP
@@ -15,7 +15,6 @@ HLT
     PUSHR x0
     PUSH 1
     SUB
-    POPR x0
 
     CALL :fact
 

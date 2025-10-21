@@ -15,8 +15,8 @@
 
 #define RAM_SIZE      128
 
-#define SCREEN_WIDTH  256
-#define SCREEN_HEIGHT 64
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 32
 #define VRAM_SIZE     (SCREEN_WIDTH * SCREEN_HEIGHT)
 
 // Integer register
